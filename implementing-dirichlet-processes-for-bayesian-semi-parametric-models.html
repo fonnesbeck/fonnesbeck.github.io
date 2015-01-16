@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="">	
+<head>
+	<meta charset="utf-8"/>
+	<title>Implementing Dirichlet processes for Bayesian semi-parametric models - Strong Inference</title>	
+	<meta name="author" content="Christopher Fonnesbeck">
+	
+
+  <meta name="description" content="MathJax.Hub.Config({ tex2jax: {inlineMath: [['$','$'], ['\\(','\\)']]} }); Semi-parametric methods have been preferred for a long time in survival analysis, for example, where the baseline hazard function is expressed non-parametrically to avoid assumptions regarding its form. Meanwhile, the ...">
+
+
+
+	<link rel="stylesheet" href="/theme/css/main.css" type="text/css" />
+		
+
+
+</head>
+	
+<body>
+
+    <div class="container">
+	  
+	  <header role="banner">
+	    <div class="feeds">
+	    </div>
+		<a href="" class="title">Strong Inference</a>
+      </header>
+	
+	  <div class="wrapper">
+
+		  <div role="main" class="content">
+	<article class="full">
+		
+		<h1>Implementing Dirichlet processes for Bayesian semi-parametric models</h1>
+		
+<div class="metadata">
+  <time datetime="2014-03-07T00:00:00+01:00" pubdate>Fri 07 March 2014</time>
+    <address class="vcard author">
+      by <a class="url fn" href="/author/christopher-fonnesbeck.html">Christopher Fonnesbeck</a>
+    </address>
+  in <a href="/category/misc.html">misc</a>
+<p class="tags">tagged <a href="/tag/bayesian.html">bayesian</a>, <a href="/tag/pymc.html">pymc</a>, <a href="/tag/mcmc.html">mcmc</a>, <a href="/tag/python.html">python</a></p></div>		
+		<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+  tex2jax: {inlineMath: [['$','$'], ['\\(','\\)']]}
+});
+</script>
+
+<script type="text/javascript"
+  src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+<p>Semi-parametric methods have been preferred for a long time in survival analysis, for example, where the baseline hazard function is expressed non-parametrically to avoid assumptions regarding its form. Meanwhile, the use of non-parametric methods in Bayesian statistics is increasing. However, there are few resources to guide scientists in implementing such models using available software. Here, I will run through a quick implementation of a particular class of non-parametric Bayesian models, using PyMC.</p>
+<p>Use of the term "non-parametric" in the context of Bayesian analysis is something of a misnomer. This is because the first and fundamental step in Bayesian modeling is to specify a <em>full probability model</em> for the problem at hand. It is rather difficult to explicitly state a full probability model without the use of probability functions, which are parametric. It turns out that Bayesian non-parametric models are not really non-parametric, but rather, are infinitely parametric.</p>
+<p>A useful non-parametric approach for modeling random effects is the <a href="http://en.wikipedia.org/wiki/Dirichlet_process">Dirichlet process</a>. A Dirichlet process (DP), just like Poisson processes, Gaussian processes, and other processes, is a stochastic process. This just means that it comprises an indexed set of random variables. The DP can be conveniently thought of as a probability distribution of probability distributions, where the set of distributions it describes is infinite. Thus, an observation under a DP is described by a probability distribution that itself is a random draw from some other distribution. The DP (lets call it $G$) is described by two quantities, a baseline distribution $G_0$ that defines the center of the DP, and a concentration parameter $\alpha$. If you wish, $G_0$ can be regarded as an <em>a priori</em> "best guess" at the functional form of the random variable, and $\alpha$ as a measure of our confidence in our guess. So, as $\alpha$ grows large, the DP resembles the functional form given by $G_0$.</p>
+<p>To see how we sample from a Dirichlet process, it is helpful to consider the constructive definition of the DP. There are several representations of this, which include the Blackwell-MacQueen urn scheme, the stick-breaking process and the <a href="http://en.wikipedia.org/wiki/Chinese_restaurant_process">Chinese restaurant process</a>. For our purposes, I will consider the stick-breaking representation of the DP. This involves breaking the support of a particular variable into $k$ disjoint segments. The first break occurs at some point $x_0$, determined stochastically; the first piece of the notional "stick" is taken as the first group in the process, while the second piece is, in turn, broken at some selected point $x_1$ along its length. Here too, one piece is assigned to be the second group, while the other is subjected to the next break, and so on, until $k$ groups are created. Associated with each piece is a probability that is proportional to its length; these $k$ probabilities will have a Dirichlet distribution -- hence, the name of the process. Notice that $k$ can be infinite, making $G$ an infinite mixture.</p>
+<p>We require two random samples to generate a DP. First, take a draw of values from the baseline distribution:</p>
+<p>$$ \theta_1, \theta_2, \ldots \sim G_0 $$</p>
+<p>then, a set of draws $v_1, v_2, \ldots$ from a $\text{Beta}(1,\alpha)$ distribution. These beta random variates are used to assign probabilities to the $\theta_i$ values, according to the stick-breaking analogy. So, the probability of $\theta_1$ corresponds to the first "break", and is just $p_1 = v_1$. The next value corresponds to the second break, which is a proportion of the remainder from the first break, or $p_2 = (1-v_1)v_2$. So, in general:</p>
+<p>$$ p_i = v_i \prod_{j=1}^{i-1} (1 - v_j) $$</p>
+<p>These probabilities correspond to the set of draws from the baseline distribution, where each of the latter are point masses of probability. So, the DP density function is:</p>
+<p>$$ g(x) = \sum_{i=1}^{\infty} p_i I(x=\theta_i) $$</p>
+<p>where $I$ is the indicator function. So, you can see that the Dirichlet process is discrete, despite the fact that its values may be non-integer. This can be generalized to a mixture of continuous distributions, which is called a DP mixture, but I will focus here on the DP alone.</p>
+<p><strong>Example: Estimating household radon levels</strong></p>
+<p>As an example of implementing Dirichlet processes for random effects, I'm going to use the radon measurement and remediation example from <a href="http://amzn.to/gFfJbs">Gelman and Hill (2006)</a>. This problem uses measurements of <a href="http://en.wikipedia.org/wiki/Radon">radon</a> (a carcinogenic, radioactive gas) from households in 85 counties in Minnesota to estimate the distribution of the substance across the state. This dataset has a natural hierarchical structure, with individual measurements nested within households, and households in turn nested within counties. Here, we are certainly interested in modeling the variation in counties, but do not have covariates measured at that level. Since we are more interested in the variation among counties, rather than the particular levels for each, a random effects model is appropriate. Whit Armstrong was kind enough to <a href="https://github.com/armstrtw/pymc_radon">code several parametrizations of this model in PyMC</a>, so I will use his code as a basis for implementing a non-parametric random effect for radon levels among counties.</p>
+<p>In the original example from Gelman and Hill, measurements are modeled as being normally distributed, with a mean that is a hierarchical function of both a county-level random effect and a fixed effect that accounted for whether houses had a basement (this is thought to increase radon levels).</p>
+<p>$$ y_i \sim N(\alpha_{j[i]} + \beta x_i, \sigma_y^2) $$</p>
+<p>So, in essence, each county has its own intercept, but shares a slope among all counties. This can easily be generalized to both random slopes and intercepts, but I'm going to keep things simple, in order to focus in implementing a single random effect.</p>
+<p>The constraint that is applied to the intercepts in Gelman and Hill's original model is that they have a common distribution (Gaussian) that describes how they vary from the state-wide mean.</p>
+<p>$$ \alpha_j \sim N(\mu_{\alpha}, \sigma_{\alpha}^2) $$</p>
+<p>This comprises a so-called "partial pooling" model, whereby counties are neither constrained to have identical means (full pooling) nor are assumed to have completely independent means (no pooling); in most applications, the truth is somewhere between these two extremes. Though this is a very flexible approach to accounting for county-level variance, one might be worried about imposing such a restrictive (thin-tailed) distribution like the normal on this variance. If there are counties that have extremely low or high levels (for whatever reason), this model will fit poorly. To allay such worries, we can hedge our bets by selecting a more forgiving functional form, such as <a href="http://en.wikipedia.org/wiki/Student's_t-distribution">Student's t</a> or <a href="http://en.wikipedia.org/wiki/Cauchy_distribution">Cauchy</a>, but these still impose parametric restrictions (<em>e.g.</em> symmetry about the mean) that we may be uncomfortable making. So, in the interest of even greater flexibility, we will replace the normal county random effect with a non-parametric alternative, using a Dirichlet process.</p>
+<p>One of the difficulties in implementing DP computationally is how to handle an infinite mixture. The easiest way to tackle this is by using a truncated Dirichlet process to approximate the full process. This can be done by choosing a size $k$ that is sufficiently large that it will exceed the number of point masses required. By doing this, we are assuming</p>
+<p>$$ \sum_{i=1}^{\infty} p_i I(x=\theta_i) \approx \sum_{i=1}^{N} p_i I(x=\theta_i) $$</p>
+<p><a href="http://onlinelibrary.wiley.com/doi/10.1002/sim.2666/abstract">Ohlssen et al. 2007</a> provide a rule of thumb for choosing $N$ such that the sum of the first $N-1$ point masses is greater than 0.99:</p>
+<p>$$ N \approx 5\alpha + 2 $$</p>
+<p>To be conservative, we will choose an even larger value (100), which we will call <code>N_dp</code>. The truncation makes implementation of DP in PyMC (or JAGS/BUGS) relatively simple.</p>
+<p>We first must specify the baseline distribution and the concentration parameter. As we have no prior information to inform a choice for $\alpha$, we will specify a uniform prior for it, with reasonable bounds:</p>
+<div class="highlight"><pre>alpha = pymc.Uniform(&#39;alpha&#39;, lower=0.5, upper=10)
+</pre></div>
+
+
+<p>Though the upper bound may seem small for a prior that purports to be uninformative, recall that for large values of $\alpha$, the DP will converge to the baseline distribution, suggesting that a continuous distribution would be more appropriate.</p>
+<p>Since we are extending a normal random effects model, I will choose a normal baseline distribution, with vague hyperpriors:</p>
+<div class="highlight"><pre>mu_0 = pymc.Normal(&#39;mu_0&#39;, mu=0, tau=0.01, value=0)
+sig_0 = pymc.Uniform(&#39;sig_0&#39;, lower=0, upper=100, value=1)
+tau_0 = sig_0 ** -2
+
+theta = pymc.Normal(&#39;theta&#39;, mu=mu_0, tau=tau_0, size=N_dp)
+</pre></div>
+
+
+<p>Notice that I have specified a uniform prior on the standard deviation, rather than the more common <a href="http://en.wikipedia.org/wiki/Gamma_distribution">gamma</a>-distributed precision; for hierarchical models this is <a href="http://ba.stat.cmu.edu/journal/2006/vol01/issue03/gelman.pdf">good practice</a>. So, now we that we have <code>N_dp</code> point masses, all that remains is to generate corresponding probabilities. Following the recipe above:</p>
+<div class="highlight"><pre><span class="s-Atom">v</span> <span class="o">=</span> <span class="s-Atom">pymc</span><span class="p">.</span><span class="nv">Beta</span><span class="p">(</span><span class="s-Atom">&#39;v&#39;</span><span class="p">,</span> <span class="s-Atom">alpha</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="s-Atom">beta</span><span class="o">=</span><span class="s-Atom">alpha</span><span class="p">,</span> <span class="s-Atom">size</span><span class="o">=</span><span class="nv">N_dp</span><span class="p">)</span>
+<span class="s-Atom">@pymc</span><span class="p">.</span><span class="s-Atom">deterministic</span>
+<span class="s-Atom">def</span> <span class="nf">p</span><span class="p">(</span><span class="s-Atom">v</span><span class="o">=</span><span class="s-Atom">v</span><span class="p">)</span><span class="s-Atom">:</span>
+    <span class="s2">&quot;&quot;&quot; Calculate Dirichlet probabilities &quot;&quot;&quot;</span>
+
+    <span class="s-Atom">#</span> <span class="nv">Probabilities</span> <span class="s-Atom">from</span> <span class="s-Atom">betas</span>
+    <span class="s-Atom">value</span> <span class="o">=</span> <span class="p">[</span><span class="s-Atom">u</span><span class="o">*</span><span class="s-Atom">np</span><span class="p">.</span><span class="nf">prod</span><span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="s-Atom">v</span><span class="p">[</span><span class="s-Atom">:i</span><span class="p">])</span> <span class="s-Atom">for</span> <span class="s-Atom">i</span><span class="p">,</span><span class="s-Atom">u</span> <span class="s-Atom">in</span> <span class="nf">enumerate</span><span class="p">(</span><span class="s-Atom">v</span><span class="p">)]</span>
+    <span class="s-Atom">#</span> <span class="nv">Enforce</span> <span class="s-Atom">sum</span> <span class="s-Atom">to</span> <span class="s-Atom">unity</span> <span class="s-Atom">constraint</span>
+    <span class="s-Atom">value</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span><span class="o">-</span><span class="nf">sum</span><span class="p">(</span><span class="s-Atom">value</span><span class="p">[:-</span><span class="mi">1</span><span class="p">])</span>
+
+    <span class="s-Atom">return</span> <span class="s-Atom">value</span>
+</pre></div>
+
+
+<p>This is where you really appreciate Python's <a href="http://docs.python.org/tutorial/datastructures.html#list-comprehensions">list comprehension</a> idiom. In fact, were it not for the fact that we wanted to ensure that the array of probabilities sums to one, <code>p</code> could have been specified in a single line.</p>
+<p>The final step involves using the Dirichlet probabilities to generate indices to the appropriate point masses. This is realized using a categorical mass function:</p>
+<div class="highlight"><pre>z = pymc.Categorical(&#39;z&#39;, p, size=len(set(counties)))
+</pre></div>
+
+
+<p>These indices, in turn, are used to index the random effects, which are used as random intercepts for the model:</p>
+<div class="highlight"><pre>a = pymc.Lambda(&#39;a&#39;, lambda z=z, theta=theta: theta[z])
+</pre></div>
+
+
+<p>Substitution of the above code into Gelman and Hill's original model produces reasonable results. The expected value of $\alpha$ is approximately 5, as shown by the posterior output below:</p>
+<p><img alt="" src="http://dl.dropbox.com/u/233041/images/alpha.png" /></p>
+<p>Here is a random sample taken from the DP:</p>
+<p><img alt="" src="http://dl.dropbox.com/u/233041/images/dphist.png" /></p>
+<p>But is the model better? One metric for model comparison is the <a href="http://en.wikipedia.org/wiki/Deviance_information_criterion">deviance information criterion</a> (DIC), which appears to strongly favor the DP random effect (smaller values are better):</p>
+<div class="highlight"><pre>In [11]: M.dic
+Out[11]: 2138.7806225675804
+
+In [12]: M_dp.dic
+Out[12]: 1993.0894265799602
+</pre></div>
+
+
+<p>If you are interested in viewing the model code in its entirety, I have uploaded it to <a href="https://github.com/fonnesbeck/pymc_radon/blob/master/radon_dp.py">my fork of Whit's code</a>.</p>	
+
+	</article>
+
+    <p>
+	<a href="https://twitter.com/share" class="twitter-share-button" data-via="" data-lang="en" data-size="large" data-related="">Tweet</a>
+	<script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}}(document,"script","twitter-wjs");</script>
+	</p>
+
+
+		  </div>	
+		  
+		  <div class="sidebar">
+		    <div class="sidebar-container" >
+
+
+  	          <nav>
+	            <h2>Categories</h2>
+	            <ul>
+	                <li class="active"><a href="/category/misc.html">misc</a></li>
+	            </ul>
+	          </nav>
+
+	            <aside>
+	            <h2>Social</h2>
+			      <ul class="social">
+				    <li><a href="#">You can add links in your config file</a><i></i></li>
+				    <li><a href="#">Another social link</a><i></i></li>
+			      </ul>
+			    </aside>
+
+	            <aside>
+	              <h2>Blogroll</h2>
+	              <ul>
+	                  <li><a href="http://getpelican.com/">Pelican</a></li>
+	                  <li><a href="http://python.org/">Python.org</a></li>
+	                  <li><a href="http://jinja.pocoo.org/">Jinja2</a></li>
+	                  <li><a href="#">You can modify those links in your config file</a></li>
+	              </ul>
+	            </aside>
+	        </div>
+		  </div>
+
+	  </div>
+
+      <footer>
+		<p role="contentinfo">
+		  Christopher Fonnesbeck - Proudly powered by <a href="http://alexis.notmyidea.org/pelican/">pelican</a>. Theme <a href="https://github.com/fle/pelican-sober">pelican-sober</a>.
+    	</p>
+
+	  </footer>	
+
+	</div>
+	
+
+</body>
+</html>
