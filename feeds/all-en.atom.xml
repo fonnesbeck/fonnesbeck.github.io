@@ -1,0 +1,315 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom"><title>Strong Inference</title><link href="http://stronginference.com/" rel="alternate"></link><link href="http://stronginference.com/feeds/all-en.atom.xml" rel="self"></link><id>http://stronginference.com/</id><updated>2014-11-30T00:00:00-06:00</updated><entry><title>Calculating Bayes factors with PyMC</title><link href="http://stronginference.com/bayes-factors-pymc.html" rel="alternate"></link><updated>2014-11-30T00:00:00-06:00</updated><author><name>Christopher Fonnesbeck</name></author><id>tag:stronginference.com,2014-11-30:bayes-factors-pymc.html</id><summary type="html">&lt;script type="text/javascript"
+  src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"&gt;
+&lt;/script&gt;
+
+&lt;p&gt;Statisticians are sometimes interested in comparing two (or more) models, with respect to their relative support by a particular dataset. This may be in order to select the best model to use for inference, or to weight models so that they can be averaged for use in multimodel inference. &lt;/p&gt;
+&lt;p&gt;The &lt;a href="http://en.wikipedia.org/wiki/Bayes_factor"&gt;Bayes factor&lt;/a&gt; is a good choice when comparing two arbitrary models, and the parameters of those models have been estimated. Bayes factors are simply ratios of &lt;em&gt;marginal&lt;/em&gt; likelihoods for competing models:&lt;/p&gt;
+&lt;p&gt;$$ \text{BF}_{i,j} = \frac{L(Y \mid M_i)}{L(Y \mid M_j)} = \frac{\int L(Y \mid M_i,\theta_i)p(\mid \theta_i \mid M_i)d\theta}{\int L(Y \mid M_j,\theta_j)p(\theta_j \mid M_j)d\theta} $$&lt;/p&gt;
+&lt;p&gt;While passingly similar to likelihood ratios, Bayes factors are calculated using likelihoods that have been integrated with respect to the unknown parameters. In contrast, likelihood ratios are calculated based on the maximum likelihood values of the parameters. This is an important difference, which makes Bayes factors a more effective means of comparing models, since it takes into account parametric uncertainty; likelihood ratios ignore this uncertainty. In addition, unlike likelihood ratios, the two models need not be nested. In other words, one model does not have to be a special case of the other.&lt;/p&gt;
+&lt;p&gt;Bayes factors are called Bayes factors because they are used in a Bayesian context by updating prior odds with information from data.&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;Posterior odds = Bayes factor x Prior odds&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;Hence, they represent the evidence in the data for changing the prior odds of one model over another. It is this interpretation as a measure of evidence that makes the Bayes factor a compelling choice for model selection.&lt;/p&gt;
+&lt;p&gt;One of the obstacles to the wider use of Bayes factors is the difficulty associated with calculating them. While likelihood ratios can be obtained simply by the use of MLEs for all model parameters, Bayes factors require the integration over all unknown model parameters. Hence, for most interesting models Markov chain Monte Carlo (MCMC) is the easiest way to obtain Bayes factors.&lt;/p&gt;
+&lt;p&gt;Here's a quick tutorial on how to obtain Bayes factors from &lt;a href="https://github.com/pymc-devs/pymc"&gt;PyMC&lt;/a&gt;. I'm going to use a simple example taken from Chapter 7 of &lt;a href="http://amzn.to/gGV2rK"&gt;Link and Barker (2010)&lt;/a&gt;. Consider a short vector of data, consisting of 5 integers:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;Y&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;array&lt;/span&gt;&lt;span class="p"&gt;([&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="mi"&gt;2&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="mi"&gt;3&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="mi"&gt;8&lt;/span&gt;&lt;span class="p"&gt;])&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;We wish to determine which of two functional forms best models this dataset. The first is a &lt;a href="http://en.wikipedia.org/wiki/Geometric_distribution"&gt;geometric model&lt;/a&gt;:&lt;/p&gt;
+&lt;p&gt;$$ f(x|p) = (1-p)^x p $$&lt;/p&gt;
+&lt;p&gt;and the second a &lt;a href="http://en.wikipedia.org/wiki/Poisson_distribution"&gt;Poisson model&lt;/a&gt;:&lt;/p&gt;
+&lt;p&gt;$$ f(x|\mu) = \frac{\mu^x e^{-\mu}}{x!} $$&lt;/p&gt;
+&lt;p&gt;Both describe the distribution of non-negative integer data, but differ in that the variance of Poisson data is equal to the mean, while the geometric model describes variance greater the mean. For this dataset, the sample variance would suggest that the geometric model is favored, but the sample is too small to say so definitively.&lt;/p&gt;
+&lt;p&gt;In order to calculate Bayes factors, we require both the prior and posterior odds:&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;Bayes factor = Posterior odds / Prior odds&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;The Bayes factor does not depend on the value of the prior model weights, but the estimate will be most precise when the posterior odds are the same. For our purposes, we will give 0.1 probability to the geometric model, and 0.9 to the Poisson model:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;pi&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="mf"&gt;0.1&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="mf"&gt;0.9&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Next, we need to specify a latent variable, which identifies the true model (we don't believe either model is "true", but we hope one is better than the other). This is easily done using a categorical random variable, that identifies one model or the other, according to their relative weight.&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;true_model&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;Categorical&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;true_model&amp;quot;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;p&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;pi&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;value&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Here, we use the specified prior weights as the categorical probabilities, and the variable has been arbitrarily initialized to zero (the geometric model).&lt;/p&gt;
+&lt;p&gt;Next, we need prior distributions for the parameters of the two models. For the Poisson model, the expected value is given a uniform prior on the interval [0,1000]:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;mu&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;Uniform&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s"&gt;&amp;#39;mu&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;lower&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;upper&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="mi"&gt;1000&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;value&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="mi"&gt;4&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;This stochastic node can be used for the geometric model as well, though it needs to be transformed for use with that distribution:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;p&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;Lambda&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s"&gt;&amp;#39;p&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="k"&gt;lambda&lt;/span&gt; &lt;span class="n"&gt;mu&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;mu&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="n"&gt;mu&lt;/span&gt;&lt;span class="p"&gt;))&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Finally, the data are incorporated by specifying the appropriate likelihood. We require a mixture of geometric and Poisson likelihoods, depending on which value &lt;em&gt;true_model&lt;/em&gt; takes. While BUGS requires an obscure trick to implement such a mixture, PyMC allows for the specification of arbitrary stochastic nodes: &lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="nd"&gt;@observed&lt;/span&gt;
+&lt;span class="k"&gt;def&lt;/span&gt; &lt;span class="nf"&gt;Ylike&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;value&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;Y&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;mu&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;mu&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;p&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;p&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;M&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;true_model&lt;/span&gt;&lt;span class="p"&gt;):&lt;/span&gt;
+    &lt;span class="sd"&gt;&amp;quot;&amp;quot;&amp;quot;Either Poisson or geometric, depending on M&amp;quot;&amp;quot;&amp;quot;&lt;/span&gt;
+    &lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="n"&gt;geometric_like&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;value&lt;/span&gt;&lt;span class="o"&gt;+&lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;p&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;M&lt;/span&gt;&lt;span class="o"&gt;==&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="ow"&gt;or&lt;/span&gt; &lt;span class="n"&gt;poisson_like&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;value&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;mu&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Notice that the function returns the geometric likelihood when M=0, or the Poisson model otherwise. Now, all that remains is to run the model, and extract the posterior quantities to calculate the Bayes factor.&lt;/p&gt;
+&lt;p&gt;Though we may be interested in the posterior estimate of the mean, all that we care about from a model selection standpoint is the estimate of &lt;em&gt;true_model&lt;/em&gt;. At every iteration, the value of this parameter takes the value of zero for the geometric model and one for the Poisson. Hence, the mean (or median) will be an estimate of the probability of the Poisson model: &lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;In&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;11&lt;/span&gt;&lt;span class="p"&gt;]:&lt;/span&gt; &lt;span class="n"&gt;M&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;true_model&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;stats&lt;/span&gt;&lt;span class="p"&gt;()[&lt;/span&gt;&lt;span class="s"&gt;&amp;#39;mean&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt;
+
+&lt;span class="n"&gt;Out&lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;11&lt;/span&gt;&lt;span class="p"&gt;]:&lt;/span&gt; &lt;span class="mf"&gt;0.39654545454545453&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;So, the posterior probability that the Poisson model is true is about 0.4, leaving 0.6 for the geometric model. The Bayes factor in favor of the geometric model is simply:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;In&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;18&lt;/span&gt;&lt;span class="p"&gt;]:&lt;/span&gt; &lt;span class="n"&gt;p_pois&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;M&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;true_model&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;stats&lt;/span&gt;&lt;span class="p"&gt;()[&lt;/span&gt;&lt;span class="s"&gt;&amp;#39;mean&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt;
+
+&lt;span class="n"&gt;In&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;19&lt;/span&gt;&lt;span class="p"&gt;]:&lt;/span&gt; &lt;span class="p"&gt;((&lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="n"&gt;p_pois&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;p_pois&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt; &lt;span class="o"&gt;/&lt;/span&gt; &lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="mf"&gt;0.1&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="mf"&gt;0.9&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+
+&lt;span class="n"&gt;Out&lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;19&lt;/span&gt;&lt;span class="p"&gt;]:&lt;/span&gt; &lt;span class="mf"&gt;13.696011004126548&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;This value can be interpreted as strong evidence in favor of the geometric model.&lt;/p&gt;
+&lt;p&gt;If you want to run the model for yourself, &lt;a href="https://github.com/pymc-devs/pymc/wiki/BayesFactor"&gt;you can download the code here&lt;/a&gt;.&lt;/p&gt;</summary><category term="bayesian"></category><category term="pymc"></category><category term="mcmc"></category><category term="python"></category></entry><entry><title>Burn-in, and Other MCMC Folklore</title><link href="http://stronginference.com/burn-in-and-other-mcmc-folklore.html" rel="alternate"></link><updated>2014-08-09T00:00:00-05:00</updated><author><name>Christopher Fonnesbeck</name></author><id>tag:stronginference.com,2014-08-09:burn-in-and-other-mcmc-folklore.html</id><summary type="html">&lt;script type="text/javascript"
+  src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"&gt;
+&lt;/script&gt;
+
+&lt;p&gt;I have been slowly working my way through &lt;a href="http://amzn.to/mR9PVr"&gt;The Handbook of Markov Chain Monte Carlo&lt;/a&gt;, a compiled volume edited by Steve Brooks &lt;em&gt;et al.&lt;/em&gt; that I picked up at last week's Joint Statistical Meetings. The first chapter is a primer on MCMC by &lt;a href="http://www.stat.umn.edu/~charlie/"&gt;Charles Geyer&lt;/a&gt;, in which he summarizes the key concepts of the theory and application of MCMC. In a particularly provocative passage, Geyer rips several of the traditional practices in setting up, running and diagnosing MCMC runs, including multi-chain runs, burn-in and sample-based diagnostics. Though they are applied regularly, these steps are simply heuristics that are applied to either aid in reaching or identifying the equilibrium distribution of the Markov chain. There are no guarantees on the reliability of any of them.&lt;/p&gt;
+&lt;p&gt;In particular, he questions the utility of burn-in:&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;Burn-in is only one method, and not a particuarly good method, for finding a good starting point.&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;I can't disagree with this, though I have always viewed MCMC sampling (for most models that I have dealt with) as being cheap enough that there is little cost to simply throwing away thousands of them. I have often thrown away as many as the first 90 percent of my samples! However, as Geyer notes, there are better ways of getting your chain into a decent region of its support without throwing anything away.&lt;/p&gt;
+&lt;p&gt;One method is to use an approximation method on your model before applying MCMC. For example, the &lt;a href="http://en.wikipedia.org/wiki/Maximum_a_posteriori_estimation"&gt;maximum a posteriori (MAP)&lt;/a&gt; estimate can be obtained using numerical optimization, then used as the initial values for an MCMC run. It turns out to be pretty easy to do in PyMC. For example, using the built-in bioassay example:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;In&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;3&lt;/span&gt;&lt;span class="p"&gt;]:&lt;/span&gt; &lt;span class="kn"&gt;from&lt;/span&gt; &lt;span class="nn"&gt;pymc.examples&lt;/span&gt; &lt;span class="kn"&gt;import&lt;/span&gt; &lt;span class="n"&gt;gelman_bioassay&lt;/span&gt;
+
+&lt;span class="n"&gt;In&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;4&lt;/span&gt;&lt;span class="p"&gt;]:&lt;/span&gt; &lt;span class="kn"&gt;from&lt;/span&gt; &lt;span class="nn"&gt;pymc&lt;/span&gt; &lt;span class="kn"&gt;import&lt;/span&gt; &lt;span class="n"&gt;MAP&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="n"&gt;MCMC&lt;/span&gt;
+
+&lt;span class="n"&gt;In&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;5&lt;/span&gt;&lt;span class="p"&gt;]:&lt;/span&gt; &lt;span class="n"&gt;M&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;MAP&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;gelman_bioassay&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+
+&lt;span class="n"&gt;In&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;6&lt;/span&gt;&lt;span class="p"&gt;]:&lt;/span&gt; &lt;span class="n"&gt;M&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;fit&lt;/span&gt;&lt;span class="p"&gt;()&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;This yields MAP estimates for all the parameters in the model, which are less likely to be true modes as the complexity of the model increases, but are a pretty good bet to be a decent starting point for MCMC.&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;In&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;7&lt;/span&gt;&lt;span class="p"&gt;]:&lt;/span&gt; &lt;span class="n"&gt;M&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;alpha&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;value&lt;/span&gt;
+&lt;span class="n"&gt;Out&lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;7&lt;/span&gt;&lt;span class="p"&gt;]:&lt;/span&gt; &lt;span class="n"&gt;array&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="mf"&gt;0.8465802225061101&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;All that remains is to move these estimates into an MCMC sampler. While one could manually plug the values of each node into the model specification, its easiest just to extract the variables from the MAP estimator, and use them to instantiate an &lt;code&gt;MCMC&lt;/code&gt; object:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="n"&gt;In&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;8&lt;/span&gt;&lt;span class="p"&gt;]:&lt;/span&gt; &lt;span class="n"&gt;M&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;variables&lt;/span&gt;
+&lt;span class="n"&gt;Out&lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;8&lt;/span&gt;&lt;span class="p"&gt;]:&lt;/span&gt; 
+&lt;span class="nb"&gt;set&lt;/span&gt;&lt;span class="p"&gt;([&lt;/span&gt;&lt;span class="o"&gt;&amp;lt;&lt;/span&gt;&lt;span class="n"&gt;pymc&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;PyMCObjects&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;Stochastic&lt;/span&gt; &lt;span class="s"&gt;&amp;#39;alpha&amp;#39;&lt;/span&gt; &lt;span class="n"&gt;at&lt;/span&gt; &lt;span class="mh"&gt;0x10f78e810&lt;/span&gt;&lt;span class="o"&gt;&amp;gt;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+     &lt;span class="o"&gt;&amp;lt;&lt;/span&gt;&lt;span class="n"&gt;pymc&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;PyMCObjects&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;Stochastic&lt;/span&gt; &lt;span class="s"&gt;&amp;#39;beta&amp;#39;&lt;/span&gt; &lt;span class="n"&gt;at&lt;/span&gt; &lt;span class="mh"&gt;0x10f78e910&lt;/span&gt;&lt;span class="o"&gt;&amp;gt;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+     &lt;span class="o"&gt;&amp;lt;&lt;/span&gt;&lt;span class="n"&gt;pymc&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;PyMCObjects&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;Deterministic&lt;/span&gt; &lt;span class="s"&gt;&amp;#39;theta&amp;#39;&lt;/span&gt; &lt;span class="n"&gt;at&lt;/span&gt; &lt;span class="mh"&gt;0x10f78e9d0&lt;/span&gt;&lt;span class="o"&gt;&amp;gt;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+     &lt;span class="o"&gt;&amp;lt;&lt;/span&gt;&lt;span class="n"&gt;pymc&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;distributions&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;Binomial&lt;/span&gt; &lt;span class="s"&gt;&amp;#39;deaths&amp;#39;&lt;/span&gt; &lt;span class="n"&gt;at&lt;/span&gt; &lt;span class="mh"&gt;0x10f78ea50&lt;/span&gt;&lt;span class="o"&gt;&amp;gt;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;
+     &lt;span class="o"&gt;&amp;lt;&lt;/span&gt;&lt;span class="n"&gt;pymc&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;CommonDeterministics&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;Lambda&lt;/span&gt; &lt;span class="s"&gt;&amp;#39;LD50&amp;#39;&lt;/span&gt; &lt;span class="n"&gt;at&lt;/span&gt; &lt;span class="mh"&gt;0x10f78ec10&lt;/span&gt;&lt;span class="o"&gt;&amp;gt;&lt;/span&gt;&lt;span class="p"&gt;])&lt;/span&gt;
+
+&lt;span class="n"&gt;In&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;9&lt;/span&gt;&lt;span class="p"&gt;]:&lt;/span&gt; &lt;span class="n"&gt;MC&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="n"&gt;MCMC&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="n"&gt;M&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;variables&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+
+&lt;span class="n"&gt;In&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mi"&gt;10&lt;/span&gt;&lt;span class="p"&gt;]:&lt;/span&gt; &lt;span class="n"&gt;MC&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="n"&gt;sample&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="mi"&gt;1000&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;span class="n"&gt;Sampling&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="mi"&gt;100&lt;/span&gt;&lt;span class="o"&gt;%&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="mo"&gt;0000000000000000000000000000000000000000000000&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="n"&gt;Iterations&lt;/span&gt;&lt;span class="p"&gt;:&lt;/span&gt; &lt;span class="mi"&gt;1000&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Notice that I did not pass a &lt;code&gt;burn&lt;/code&gt; argument to MCMC, which defaults to zero. As is evident from the graphical output of the posteriors, this results in what appears to be a homogeneous chain, and which is hopefully already at its equilibrium distribution.&lt;/p&gt;
+&lt;p&gt;&lt;img src="http://f.cl.ly/items/4513263v3x3n1T0m3o27/alpha.png" width="500"&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src="http://f.cl.ly/items/1i0W0k1Q2S3h172E2v0b/beta.png" width="500"&gt;&lt;/p&gt;
+&lt;p&gt;What the MCMC practitioner fears is using a chain for inference that has not yet converged to its target distribution. Unfortunately, diagnostics cannot reliably alert you to this, nor does starting a model in several chains from disparate starting values guarantee this. There is also no magical threshold to distinguish convergence from pre-convergence regions in a MCMC trace. Geyer insists that only running chains for a very, very long time will inspire confidence:&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;Your humble author has a dictum that the lease one can do is make an overnight run. ... If you do not make runs like that, you are simply not serious about MCMC.&lt;/p&gt;
+&lt;/blockquote&gt;</summary><category term="bayesian"></category><category term="mcmc"></category><category term="pymc"></category><category term="python"></category></entry><entry><title>Implementing Dirichlet processes for Bayesian semi-parametric models</title><link href="http://stronginference.com/implementing-dirichlet-processes-for-bayesian-semi-parametric-models.html" rel="alternate"></link><updated>2014-03-07T00:00:00-06:00</updated><author><name>Christopher Fonnesbeck</name></author><id>tag:stronginference.com,2014-03-07:implementing-dirichlet-processes-for-bayesian-semi-parametric-models.html</id><summary type="html">&lt;script type="text/x-mathjax-config"&gt;
+MathJax.Hub.Config({
+  tex2jax: {inlineMath: [['$','$'], ['\\(','\\)']]}
+});
+&lt;/script&gt;
+
+&lt;script type="text/javascript"
+  src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"&gt;
+&lt;/script&gt;
+
+&lt;p&gt;Semi-parametric methods have been preferred for a long time in survival analysis, for example, where the baseline hazard function is expressed non-parametrically to avoid assumptions regarding its form. Meanwhile, the use of non-parametric methods in Bayesian statistics is increasing. However, there are few resources to guide scientists in implementing such models using available software. Here, I will run through a quick implementation of a particular class of non-parametric Bayesian models, using PyMC.&lt;/p&gt;
+&lt;p&gt;Use of the term "non-parametric" in the context of Bayesian analysis is something of a misnomer. This is because the first and fundamental step in Bayesian modeling is to specify a &lt;em&gt;full probability model&lt;/em&gt; for the problem at hand. It is rather difficult to explicitly state a full probability model without the use of probability functions, which are parametric. It turns out that Bayesian non-parametric models are not really non-parametric, but rather, are infinitely parametric.&lt;/p&gt;
+&lt;p&gt;A useful non-parametric approach for modeling random effects is the &lt;a href="http://en.wikipedia.org/wiki/Dirichlet_process"&gt;Dirichlet process&lt;/a&gt;. A Dirichlet process (DP), just like Poisson processes, Gaussian processes, and other processes, is a stochastic process. This just means that it comprises an indexed set of random variables. The DP can be conveniently thought of as a probability distribution of probability distributions, where the set of distributions it describes is infinite. Thus, an observation under a DP is described by a probability distribution that itself is a random draw from some other distribution. The DP (lets call it $G$) is described by two quantities, a baseline distribution $G_0$ that defines the center of the DP, and a concentration parameter $\alpha$. If you wish, $G_0$ can be regarded as an &lt;em&gt;a priori&lt;/em&gt; "best guess" at the functional form of the random variable, and $\alpha$ as a measure of our confidence in our guess. So, as $\alpha$ grows large, the DP resembles the functional form given by $G_0$.&lt;/p&gt;
+&lt;p&gt;To see how we sample from a Dirichlet process, it is helpful to consider the constructive definition of the DP. There are several representations of this, which include the Blackwell-MacQueen urn scheme, the stick-breaking process and the &lt;a href="http://en.wikipedia.org/wiki/Chinese_restaurant_process"&gt;Chinese restaurant process&lt;/a&gt;. For our purposes, I will consider the stick-breaking representation of the DP. This involves breaking the support of a particular variable into $k$ disjoint segments. The first break occurs at some point $x_0$, determined stochastically; the first piece of the notional "stick" is taken as the first group in the process, while the second piece is, in turn, broken at some selected point $x_1$ along its length. Here too, one piece is assigned to be the second group, while the other is subjected to the next break, and so on, until $k$ groups are created. Associated with each piece is a probability that is proportional to its length; these $k$ probabilities will have a Dirichlet distribution -- hence, the name of the process. Notice that $k$ can be infinite, making $G$ an infinite mixture.&lt;/p&gt;
+&lt;p&gt;We require two random samples to generate a DP. First, take a draw of values from the baseline distribution:&lt;/p&gt;
+&lt;p&gt;$$ \theta_1, \theta_2, \ldots \sim G_0 $$&lt;/p&gt;
+&lt;p&gt;then, a set of draws $v_1, v_2, \ldots$ from a $\text{Beta}(1,\alpha)$ distribution. These beta random variates are used to assign probabilities to the $\theta_i$ values, according to the stick-breaking analogy. So, the probability of $\theta_1$ corresponds to the first "break", and is just $p_1 = v_1$. The next value corresponds to the second break, which is a proportion of the remainder from the first break, or $p_2 = (1-v_1)v_2$. So, in general:&lt;/p&gt;
+&lt;p&gt;$$ p_i = v_i \prod_{j=1}^{i-1} (1 - v_j) $$&lt;/p&gt;
+&lt;p&gt;These probabilities correspond to the set of draws from the baseline distribution, where each of the latter are point masses of probability. So, the DP density function is:&lt;/p&gt;
+&lt;p&gt;$$ g(x) = \sum_{i=1}^{\infty} p_i I(x=\theta_i) $$&lt;/p&gt;
+&lt;p&gt;where $I$ is the indicator function. So, you can see that the Dirichlet process is discrete, despite the fact that its values may be non-integer. This can be generalized to a mixture of continuous distributions, which is called a DP mixture, but I will focus here on the DP alone.&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Example: Estimating household radon levels&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;As an example of implementing Dirichlet processes for random effects, I'm going to use the radon measurement and remediation example from &lt;a href="http://amzn.to/gFfJbs"&gt;Gelman and Hill (2006)&lt;/a&gt;. This problem uses measurements of &lt;a href="http://en.wikipedia.org/wiki/Radon"&gt;radon&lt;/a&gt; (a carcinogenic, radioactive gas) from households in 85 counties in Minnesota to estimate the distribution of the substance across the state. This dataset has a natural hierarchical structure, with individual measurements nested within households, and households in turn nested within counties. Here, we are certainly interested in modeling the variation in counties, but do not have covariates measured at that level. Since we are more interested in the variation among counties, rather than the particular levels for each, a random effects model is appropriate. Whit Armstrong was kind enough to &lt;a href="https://github.com/armstrtw/pymc_radon"&gt;code several parametrizations of this model in PyMC&lt;/a&gt;, so I will use his code as a basis for implementing a non-parametric random effect for radon levels among counties.&lt;/p&gt;
+&lt;p&gt;In the original example from Gelman and Hill, measurements are modeled as being normally distributed, with a mean that is a hierarchical function of both a county-level random effect and a fixed effect that accounted for whether houses had a basement (this is thought to increase radon levels).&lt;/p&gt;
+&lt;p&gt;$$ y_i \sim N(\alpha_{j[i]} + \beta x_i, \sigma_y^2) $$&lt;/p&gt;
+&lt;p&gt;So, in essence, each county has its own intercept, but shares a slope among all counties. This can easily be generalized to both random slopes and intercepts, but I'm going to keep things simple, in order to focus in implementing a single random effect.&lt;/p&gt;
+&lt;p&gt;The constraint that is applied to the intercepts in Gelman and Hill's original model is that they have a common distribution (Gaussian) that describes how they vary from the state-wide mean.&lt;/p&gt;
+&lt;p&gt;$$ \alpha_j \sim N(\mu_{\alpha}, \sigma_{\alpha}^2) $$&lt;/p&gt;
+&lt;p&gt;This comprises a so-called "partial pooling" model, whereby counties are neither constrained to have identical means (full pooling) nor are assumed to have completely independent means (no pooling); in most applications, the truth is somewhere between these two extremes. Though this is a very flexible approach to accounting for county-level variance, one might be worried about imposing such a restrictive (thin-tailed) distribution like the normal on this variance. If there are counties that have extremely low or high levels (for whatever reason), this model will fit poorly. To allay such worries, we can hedge our bets by selecting a more forgiving functional form, such as &lt;a href="http://en.wikipedia.org/wiki/Student's_t-distribution"&gt;Student's t&lt;/a&gt; or &lt;a href="http://en.wikipedia.org/wiki/Cauchy_distribution"&gt;Cauchy&lt;/a&gt;, but these still impose parametric restrictions (&lt;em&gt;e.g.&lt;/em&gt; symmetry about the mean) that we may be uncomfortable making. So, in the interest of even greater flexibility, we will replace the normal county random effect with a non-parametric alternative, using a Dirichlet process.&lt;/p&gt;
+&lt;p&gt;One of the difficulties in implementing DP computationally is how to handle an infinite mixture. The easiest way to tackle this is by using a truncated Dirichlet process to approximate the full process. This can be done by choosing a size $k$ that is sufficiently large that it will exceed the number of point masses required. By doing this, we are assuming&lt;/p&gt;
+&lt;p&gt;$$ \sum_{i=1}^{\infty} p_i I(x=\theta_i) \approx \sum_{i=1}^{N} p_i I(x=\theta_i) $$&lt;/p&gt;
+&lt;p&gt;&lt;a href="http://onlinelibrary.wiley.com/doi/10.1002/sim.2666/abstract"&gt;Ohlssen et al. 2007&lt;/a&gt; provide a rule of thumb for choosing $N$ such that the sum of the first $N-1$ point masses is greater than 0.99:&lt;/p&gt;
+&lt;p&gt;$$ N \approx 5\alpha + 2 $$&lt;/p&gt;
+&lt;p&gt;To be conservative, we will choose an even larger value (100), which we will call &lt;code&gt;N_dp&lt;/code&gt;. The truncation makes implementation of DP in PyMC (or JAGS/BUGS) relatively simple.&lt;/p&gt;
+&lt;p&gt;We first must specify the baseline distribution and the concentration parameter. As we have no prior information to inform a choice for $\alpha$, we will specify a uniform prior for it, with reasonable bounds:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;alpha = pymc.Uniform(&amp;#39;alpha&amp;#39;, lower=0.5, upper=10)
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Though the upper bound may seem small for a prior that purports to be uninformative, recall that for large values of $\alpha$, the DP will converge to the baseline distribution, suggesting that a continuous distribution would be more appropriate.&lt;/p&gt;
+&lt;p&gt;Since we are extending a normal random effects model, I will choose a normal baseline distribution, with vague hyperpriors:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;mu_0 = pymc.Normal(&amp;#39;mu_0&amp;#39;, mu=0, tau=0.01, value=0)
+sig_0 = pymc.Uniform(&amp;#39;sig_0&amp;#39;, lower=0, upper=100, value=1)
+tau_0 = sig_0 ** -2
+
+theta = pymc.Normal(&amp;#39;theta&amp;#39;, mu=mu_0, tau=tau_0, size=N_dp)
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Notice that I have specified a uniform prior on the standard deviation, rather than the more common &lt;a href="http://en.wikipedia.org/wiki/Gamma_distribution"&gt;gamma&lt;/a&gt;-distributed precision; for hierarchical models this is &lt;a href="http://ba.stat.cmu.edu/journal/2006/vol01/issue03/gelman.pdf"&gt;good practice&lt;/a&gt;. So, now we that we have &lt;code&gt;N_dp&lt;/code&gt; point masses, all that remains is to generate corresponding probabilities. Following the recipe above:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span class="s-Atom"&gt;v&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s-Atom"&gt;pymc&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="nv"&gt;Beta&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s-Atom"&gt;&amp;#39;v&amp;#39;&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="s-Atom"&gt;alpha&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="s-Atom"&gt;beta&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="s-Atom"&gt;alpha&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt; &lt;span class="s-Atom"&gt;size&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="nv"&gt;N_dp&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;
+&lt;span class="s-Atom"&gt;@pymc&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="s-Atom"&gt;deterministic&lt;/span&gt;
+&lt;span class="s-Atom"&gt;def&lt;/span&gt; &lt;span class="nf"&gt;p&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s-Atom"&gt;v&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="s-Atom"&gt;v&lt;/span&gt;&lt;span class="p"&gt;)&lt;/span&gt;&lt;span class="s-Atom"&gt;:&lt;/span&gt;
+    &lt;span class="s2"&gt;&amp;quot;&amp;quot;&amp;quot; Calculate Dirichlet probabilities &amp;quot;&amp;quot;&amp;quot;&lt;/span&gt;
+
+    &lt;span class="s-Atom"&gt;#&lt;/span&gt; &lt;span class="nv"&gt;Probabilities&lt;/span&gt; &lt;span class="s-Atom"&gt;from&lt;/span&gt; &lt;span class="s-Atom"&gt;betas&lt;/span&gt;
+    &lt;span class="s-Atom"&gt;value&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="s-Atom"&gt;u&lt;/span&gt;&lt;span class="o"&gt;*&lt;/span&gt;&lt;span class="s-Atom"&gt;np&lt;/span&gt;&lt;span class="p"&gt;.&lt;/span&gt;&lt;span class="nf"&gt;prod&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="s-Atom"&gt;v&lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="s-Atom"&gt;:i&lt;/span&gt;&lt;span class="p"&gt;])&lt;/span&gt; &lt;span class="s-Atom"&gt;for&lt;/span&gt; &lt;span class="s-Atom"&gt;i&lt;/span&gt;&lt;span class="p"&gt;,&lt;/span&gt;&lt;span class="s-Atom"&gt;u&lt;/span&gt; &lt;span class="s-Atom"&gt;in&lt;/span&gt; &lt;span class="nf"&gt;enumerate&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s-Atom"&gt;v&lt;/span&gt;&lt;span class="p"&gt;)]&lt;/span&gt;
+    &lt;span class="s-Atom"&gt;#&lt;/span&gt; &lt;span class="nv"&gt;Enforce&lt;/span&gt; &lt;span class="s-Atom"&gt;sum&lt;/span&gt; &lt;span class="s-Atom"&gt;to&lt;/span&gt; &lt;span class="s-Atom"&gt;unity&lt;/span&gt; &lt;span class="s-Atom"&gt;constraint&lt;/span&gt;
+    &lt;span class="s-Atom"&gt;value&lt;/span&gt;&lt;span class="p"&gt;[&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="p"&gt;]&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="o"&gt;-&lt;/span&gt;&lt;span class="nf"&gt;sum&lt;/span&gt;&lt;span class="p"&gt;(&lt;/span&gt;&lt;span class="s-Atom"&gt;value&lt;/span&gt;&lt;span class="p"&gt;[:-&lt;/span&gt;&lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="p"&gt;])&lt;/span&gt;
+
+    &lt;span class="s-Atom"&gt;return&lt;/span&gt; &lt;span class="s-Atom"&gt;value&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;This is where you really appreciate Python's &lt;a href="http://docs.python.org/tutorial/datastructures.html#list-comprehensions"&gt;list comprehension&lt;/a&gt; idiom. In fact, were it not for the fact that we wanted to ensure that the array of probabilities sums to one, &lt;code&gt;p&lt;/code&gt; could have been specified in a single line.&lt;/p&gt;
+&lt;p&gt;The final step involves using the Dirichlet probabilities to generate indices to the appropriate point masses. This is realized using a categorical mass function:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;z = pymc.Categorical(&amp;#39;z&amp;#39;, p, size=len(set(counties)))
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;These indices, in turn, are used to index the random effects, which are used as random intercepts for the model:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;a = pymc.Lambda(&amp;#39;a&amp;#39;, lambda z=z, theta=theta: theta[z])
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Substitution of the above code into Gelman and Hill's original model produces reasonable results. The expected value of $\alpha$ is approximately 5, as shown by the posterior output below:&lt;/p&gt;
+&lt;p&gt;&lt;img alt="" src="http://dl.dropbox.com/u/233041/images/alpha.png" /&gt;&lt;/p&gt;
+&lt;p&gt;Here is a random sample taken from the DP:&lt;/p&gt;
+&lt;p&gt;&lt;img alt="" src="http://dl.dropbox.com/u/233041/images/dphist.png" /&gt;&lt;/p&gt;
+&lt;p&gt;But is the model better? One metric for model comparison is the &lt;a href="http://en.wikipedia.org/wiki/Deviance_information_criterion"&gt;deviance information criterion&lt;/a&gt; (DIC), which appears to strongly favor the DP random effect (smaller values are better):&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;In [11]: M.dic
+Out[11]: 2138.7806225675804
+
+In [12]: M_dp.dic
+Out[12]: 1993.0894265799602
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;If you are interested in viewing the model code in its entirety, I have uploaded it to &lt;a href="https://github.com/fonnesbeck/pymc_radon/blob/master/radon_dp.py"&gt;my fork of Whit's code&lt;/a&gt;.&lt;/p&gt;</summary><category term="bayesian"></category><category term="pymc"></category><category term="mcmc"></category><category term="python"></category></entry><entry><title>Automatic Missing Data Imputation with PyMC</title><link href="http://stronginference.com/missing-data-imputation.html" rel="alternate"></link><updated>2013-08-18T00:00:00-05:00</updated><author><name>Christopher Fonnesbeck</name></author><id>tag:stronginference.com,2013-08-18:missing-data-imputation.html</id><summary type="html">&lt;script type="text/javascript"
+  src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"&gt;
+&lt;/script&gt;
+
+&lt;p&gt;A distinct advantage of using Bayesian inference is in its universal application of probability models for providing inference. As such, all components of a Bayesian model are specified using probability distributions for either describing a sampling model (in the case of observed data) or characterizing the uncertainty of an unknown quantity. This means that missing data are treated the same as parameters, and so imputation proceeds very much like estimation. When using Markov chain Monte Carlo (MCMC) to fit Bayesian models it usually requires only a few extra lines of code to impute missing values, based on the sampling distribution of the missing data, and associated (usually unknown) parameters. Using &lt;a href="http://github.com/pymc-devs/pymc" title="PyMC on GitHhub"&gt;PyMC built from the latest development code&lt;/a&gt;, missing data imputation can be done automatically.&lt;/p&gt;
+&lt;h2&gt;Types of Missing Data&lt;/h2&gt;
+&lt;p&gt;The appropriate treatment of missing data depends strongly on how the data came to be missing from the dataset. These mechanisms can be broadly classified into three groups, according to how much information and effort is required to deal with them adequately.&lt;/p&gt;
+&lt;h3&gt;Missing completely at random (MCAR)&lt;/h3&gt;
+&lt;p&gt;If data are MCAR, then the probability of that any given datum is missing is equal over the whole dataset. In other words, each datum that is present had the same probability of being missing as each datum that is absent. This implies that ignoring the missing data will not bias inference.&lt;/p&gt;
+&lt;h3&gt;Missing at random (MAR)&lt;/h3&gt;
+&lt;p&gt;MAR allows for data to be missing according to a random process, but is more general than MCAR in that all units do not have equal probabilities of being missing. The constraint here is that missingness may only depend on information that is fully observed. For example, the reporting of income on surveys may vary according to some measured factor, such as age, race or sex. We can thus account for heterogeneity in the probability of reporting income by controlling for the measured covariate in whatever model is used for infrence.&lt;/p&gt;
+&lt;h3&gt;Missing not at random (MNAR)&lt;/h3&gt;
+&lt;p&gt;When the probability of missing data varies according to information that is not available, this is classified as MNAR. This can either be because suitable covariates for explaining missingness have not been recorded (or are otherwise unavailable) or the probability of being missing depends on the value of the missing datum itself. Extending the previous example, if the probability of reporting income varied according to income itself, this is missing not at random.&lt;/p&gt;
+&lt;p&gt;In each of these situations, the missing data may be imputed using a sampling model, though in the case of missing not at random, it may be difficult to validate the assumptions required to specify such a model. For the purposes of quickly demonstrating automatic imputation in PyMC, I will illustrate using data that is MCAR.&lt;/p&gt;
+&lt;h2&gt;Implementing imputation in PyMC&lt;/h2&gt;
+&lt;p&gt;One of the recurring examples in the PyMC documentation is the coal mining disasters dataset from &lt;a href="http://biomet.oxfordjournals.org/cgi/content/short/66/1/191" title="Jarrett RG (1979). A Note on the Intervals Between Coal Mining Disasters. Biometrika, 66, 191–193."&gt;Jarrett 1979&lt;/a&gt;. This is a simple longitudinal dataset consisting of counts of coal mining disasters in the U.K. between 1851 and 1962. The objective of the analysis is to identify a switch point in the rate of disasters, from a relatively high rate early in the time series to a lower one later on. Hence, we are interested in estimating two rates, in addition to the year after which the rate changed.&lt;/p&gt;
+&lt;p&gt;In order to illustrate imputation, I have randomly replaced the data for two years with a missing data placeholder value, -999:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;disasters_array =   np.array([ 4, 5, 4, 0, 1, 4, 3, 4, 0, 6, 3, 3, 4, 0, 2, 6,
+                   3, 3, 5, 4, 5, 3, 1, 4, 4, 1, 5, 5, 3, 4, 2, 5,
+                   2, 2, 3, 4, 2, 1, 3, -999, 2, 1, 1, 1, 1, 3, 0, 0,
+                   1, 0, 1, 1, 0, 0, 3, 1, 0, 3, 2, 2, 0, 1, 1, 1,
+                   0, 1, 0, 1, 0, 0, 0, 2, 1, 0, 0, 0, 1, 1, 0, 2,
+                   3, 3, 1, -999, 2, 1, 1, 1, 1, 2, 4, 2, 0, 0, 1, 4,
+                   0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1])
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Here, the &lt;code&gt;np&lt;/code&gt; prefix indicates that the &lt;code&gt;array&lt;/code&gt; function comes from the &lt;a href="http://numpy.scipy.org/"&gt;Numpy&lt;/a&gt; module. PyMC is able to recognize the presence of missing values when we use Numpy's MaskedArray class to contain our data. The masked array is instantiated via the &lt;code&gt;masked_array&lt;/code&gt; function, using the original data array and a boolean mask as arguments: &lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;    masked_values = np.ma.masked_array(disasters_array,
+    mask=disasters_array==-999)
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Of course, my use of -999 to indicate missing data was entirely arbitrary, so feel free to use any appropriate value, so long as it can be identified and masked (obviously, small positive integers would not have been appropriate here). Let's have a look at the masked array:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;masked_array(data = [4 5 4 0 1 4 3 4 0 6 3 3 4 0 2 6 3 3 5 4 5 3 1 4 
+    4 1 5 5 3 4 2 5 2 2 3 4 2 1 3 -- 2 1 1 1 1 3 0 0 1 0 1 1 0 0 3 1 
+    0 3 2 2 0 1 1 1 0 1 0 1 0 0 0 2 1 0 0 0 1 1 0 2 3 3 1 -- 2 1 1 1 
+    1 2 4 2 0 0 1 4 0 0 0 1 0 0 0 0 0 1 0 0 1 0 1], 
+    mask = [False False False False False False False False False 
+    False False False False False False False False False False False
+    False False False False False False False False False False False
+    False False False False False False False False True False False 
+    False False False False False False False False False False False
+    False False False False False False False False False False False
+    False False False False False False False False False False False
+    False False False False False False False False True False False 
+    False False False False False False False False False False False
+    False False False False False False False False False False False 
+    False False False],
+    fill_value = 999999)
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Notice that the placeholder values have disappeared from the data, and the array has a &lt;code&gt;mask&lt;/code&gt; attribute that identifies the indices for the missing values.&lt;/p&gt;
+&lt;p&gt;Beyond the construction of a masked array, there is nothing else that needs to be done to accommodate missing values in a PyMC model.&lt;/p&gt;
+&lt;p&gt;First, we need to specify prior distributions for the unknown parameters, which I call &lt;code&gt;switch&lt;/code&gt; (the switch point), &lt;code&gt;early&lt;/code&gt; (the early mean) and &lt;code&gt;late&lt;/code&gt; (the late mean). An appropriate non-informative prior for the switch point is a discrete uniform random variable over the range of years represented by the data. Since the rates must be positive, I use identical weakly-informative exponential distributions:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;# Switchpoint
+switch = DiscreteUniform(&amp;#39;switch&amp;#39;, lower=0, upper=110)
+# Early mean
+early = Exponential(&amp;#39;early&amp;#39;, beta=1)
+# Late mean
+late = Exponential(&amp;#39;late&amp;#39;, beta=1)
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;The only tricky part of the model is assigning the appropriate rate parameter to each observation. Though the two rates and the switch point are stochastic, in the sense that we have used probability models to describe our uncertainty in their true values, the membership of each observation to either the early or late rate is a deterministic function of the stochastics. Thus, we set up a deterministic node that assigns a rate to each observation depending on the  location of the switch point at the current iteration of the MCMC algorithm:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;@deterministic
+def rates(s=switch, e=early, l=late):
+    &amp;quot;&amp;quot;&amp;quot;Allocate appropriate mean to time series&amp;quot;&amp;quot;&amp;quot;
+    out = np.empty(len(disasters_array))
+    # Early mean prior to switchpoint
+    out[:s] = e
+    # Late mean following switchpoint
+    out[s:] = l
+    return out
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Finally, the data likelihood comprises the annual counts of disasters being modeled as Poisson random variables, conditional on the parameters assigned in the &lt;code&gt;rates&lt;/code&gt; node above. The masked array is specified as the value of the stochastic node, and flagged as data via the &lt;code&gt;observed&lt;/code&gt; argument.&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;disasters = Poisson(&amp;#39;disasters&amp;#39;, mu=rates, value=masked_values, observed=True)
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;If we run the model, then query the &lt;code&gt;disasters&lt;/code&gt; node for posterior statistics, we can obtain a summary of the estimated number of disasters in both of the missing years.&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;In [9]: DisasterModel.disasters.stats()
+Out[9]: 
+{&amp;#39;95% HPD interval&amp;#39;: array([[ 0.,  6.],
+       [ 0.,  3.]]),
+ &amp;#39;mc error&amp;#39;: array([ 0.11645149,  0.03479713]),
+ &amp;#39;mean&amp;#39;: array([ 2.2246,  0.91  ]),
+ &amp;#39;n&amp;#39;: 5000,
+ &amp;#39;quantiles&amp;#39;: {2.5: array([ 0.,  0.]),
+               25: array([ 1.,  0.]),
+               50: array([ 2.,  1.]),
+               75: array([ 3.,  1.]),
+               97.5: array([ 7.,  3.])},
+ &amp;#39;standard deviation&amp;#39;: array([ 1.88206133,  0.92536479])}
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Clearly, this is a rather trivial example, but it serves to illustrate how easy it can be to deal with missing values in PyMC. Though not applicable here, it would be similarly easy to handle MAR data, by constructing a data likelihood whose parameter(s) is a function of one or more covariates. &lt;/p&gt;
+&lt;p&gt;Automatic imputation is a new feature in PyMC, and is currently available only in the &lt;a href="http://github.com/pymc-devs/pymc"&gt;development codebase&lt;/a&gt;. It will hopefully appear in the feature set of a future release.&lt;/p&gt;</summary><category term="pymc"></category><category term="mcmc"></category><category term="python"></category></entry></feed>
