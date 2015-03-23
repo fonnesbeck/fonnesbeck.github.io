@@ -76,7 +76,7 @@
 
 
 &lt;p&gt;This value can be interpreted as strong evidence in favor of the geometric model.&lt;/p&gt;
-&lt;p&gt;If you want to run the model for yourself, &lt;a href="https://github.com/pymc-devs/pymc/wiki/BayesFactor"&gt;you can download the code here&lt;/a&gt;.&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Christopher Fonnesbeck</dc:creator><pubDate>Sun, 30 Nov 2014 00:00:00 -0600</pubDate><guid>tag:stronginference.com,2014-11-30:bayes-factors-pymc.html</guid><category>bayesian</category><category>pymc</category><category>mcmc</category><category>python</category></item><item><title>Burn-in, and Other MCMC Folklore</title><link>http://stronginference.com/burn-in-and-other-mcmc-folklore.html</link><description>&lt;script type="text/javascript"
+&lt;p&gt;If you want to run the model for yourself, &lt;a href="https://github.com/pymc-devs/pymc3/wiki/BayesFactor"&gt;you can download the code here&lt;/a&gt;.&lt;/p&gt;</description><dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Christopher Fonnesbeck</dc:creator><pubDate>Sun, 30 Nov 2014 00:00:00 -0600</pubDate><guid>tag:stronginference.com,2014-11-30:bayes-factors-pymc.html</guid><category>bayesian</category><category>pymc</category><category>mcmc</category><category>python</category></item><item><title>Burn-in, and Other MCMC Folklore</title><link>http://stronginference.com/burn-in-and-other-mcmc-folklore.html</link><description>&lt;script type="text/javascript"
   src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"&gt;
 &lt;/script&gt;
 
