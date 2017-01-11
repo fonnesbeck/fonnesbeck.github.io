@@ -6,12 +6,12 @@
 	<meta name="author" content="Christopher Fonnesbeck">
 	
 
-  <meta name="description" content="MathJax.Hub.Config({ tex2jax: {inlineMath: [['$','$'], ['\\(','\\)']]} }); Semi-parametric methods have been preferred for a long time in survival analysis, for example, where the baseline hazard function is expressed non-parametrically to avoid assumptions regarding its form. Meanwhile, the ...">
+  <meta name="description" content="MathJax.Hub.Config({ tex2jax: {inlineMath: [['$','$'], ['\\(','\\)']]} }); Semi-parametric methods have been preferred for a long time in survival analysis, for example, where the baseline hazard function is expressed non-parametrically to avoid assumptions regarding its form. Meanwhile, the use of non-parametric methods in Bayesian statistics is increasing. However, there are few resources to …">
 
 	<meta name="twitter:card" content="summary">
 	  <meta name="twitter:creator" content="@fonnesbeck">
 	<meta name="twitter:title" content="Implementing Dirichlet processes for Bayesian semi-parametric models">
-	<meta name="twitter:description" content="MathJax.Hub.Config({ tex2jax: {inlineMath: [['$','$'], ['\\(','\\)']]} }); Semi-parametric methods have been preferred for a long time in survival analysis, for example, where the baseline hazard function is expressed non-parametrically to avoid assumptions regarding its form. Meanwhile, the ...">
+	<meta name="twitter:description" content="MathJax.Hub.Config({ tex2jax: {inlineMath: [['$','$'], ['\\(','\\)']]} }); Semi-parametric methods have been preferred for a long time in survival analysis, for example, where the baseline hazard function is expressed non-parametrically to avoid assumptions regarding its form. Meanwhile, the use of non-parametric methods in Bayesian statistics is increasing. However, there are few resources to …">
 	<meta name="twitter:url" content="http://stronginference.com/implementing-dirichlet-processes-for-bayesian-semi-parametric-models.html">
 
 
@@ -28,7 +28,7 @@
 	  
 	  <header role="banner">
 	    <div class="feeds">
-	        <a href="http://stronginference.com/feeds/all.atom.xml" rel="alternate"><img src="/theme/images/icons/feed-32px.png" alt="atom feed"/></a>
+	      <a href="http://stronginference.com/feeds/all.atom.xml" rel="alternate"><img src="http://stronginference.com/theme/images/icons/feed-32px.png" alt="atom feed"/></a>
 	    </div>
 		<a href="http://stronginference.com" class="title">Strong Inference</a>
       </header>
@@ -82,13 +82,13 @@ MathJax.Hub.Config({
 <p>$$ N \approx 5\alpha + 2 $$</p>
 <p>To be conservative, we will choose an even larger value (100), which we will call <code>N_dp</code>. The truncation makes implementation of DP in PyMC (or JAGS/BUGS) relatively simple.</p>
 <p>We first must specify the baseline distribution and the concentration parameter. As we have no prior information to inform a choice for $\alpha$, we will specify a uniform prior for it, with reasonable bounds:</p>
-<div class="highlight"><pre>alpha = pymc.Uniform(&#39;alpha&#39;, lower=0.5, upper=10)
+<div class="highlight"><pre><span></span>alpha = pymc.Uniform(&#39;alpha&#39;, lower=0.5, upper=10)
 </pre></div>
 
 
 <p>Though the upper bound may seem small for a prior that purports to be uninformative, recall that for large values of $\alpha$, the DP will converge to the baseline distribution, suggesting that a continuous distribution would be more appropriate.</p>
 <p>Since we are extending a normal random effects model, I will choose a normal baseline distribution, with vague hyperpriors:</p>
-<div class="highlight"><pre>mu_0 = pymc.Normal(&#39;mu_0&#39;, mu=0, tau=0.01, value=0)
+<div class="highlight"><pre><span></span>mu_0 = pymc.Normal(&#39;mu_0&#39;, mu=0, tau=0.01, value=0)
 sig_0 = pymc.Uniform(&#39;sig_0&#39;, lower=0, upper=100, value=1)
 tau_0 = sig_0 ** -2
 
@@ -97,37 +97,37 @@ theta = pymc.Normal(&#39;theta&#39;, mu=mu_0, tau=tau_0, size=N_dp)
 
 
 <p>Notice that I have specified a uniform prior on the standard deviation, rather than the more common <a href="http://en.wikipedia.org/wiki/Gamma_distribution">gamma</a>-distributed precision; for hierarchical models this is <a href="http://ba.stat.cmu.edu/journal/2006/vol01/issue03/gelman.pdf">good practice</a>. So, now we that we have <code>N_dp</code> point masses, all that remains is to generate corresponding probabilities. Following the recipe above:</p>
-<div class="highlight"><pre><span class="s-Atom">v</span> <span class="o">=</span> <span class="s-Atom">pymc</span><span class="p">.</span><span class="nv">Beta</span><span class="p">(</span><span class="s-Atom">&#39;v&#39;</span><span class="p">,</span> <span class="s-Atom">alpha</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="s-Atom">beta</span><span class="o">=</span><span class="s-Atom">alpha</span><span class="p">,</span> <span class="s-Atom">size</span><span class="o">=</span><span class="nv">N_dp</span><span class="p">)</span>
-<span class="s-Atom">@pymc</span><span class="p">.</span><span class="s-Atom">deterministic</span>
-<span class="s-Atom">def</span> <span class="nf">p</span><span class="p">(</span><span class="s-Atom">v</span><span class="o">=</span><span class="s-Atom">v</span><span class="p">)</span><span class="s-Atom">:</span>
+<div class="highlight"><pre><span></span><span class="s s-Atom">v</span> <span class="o">=</span> <span class="s s-Atom">pymc</span><span class="p">.</span><span class="nv">Beta</span><span class="p">(</span><span class="s s-Atom">&#39;v&#39;</span><span class="p">,</span> <span class="s s-Atom">alpha</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="s s-Atom">beta</span><span class="o">=</span><span class="s s-Atom">alpha</span><span class="p">,</span> <span class="s s-Atom">size</span><span class="o">=</span><span class="nv">N_dp</span><span class="p">)</span>
+<span class="s s-Atom">@pymc</span><span class="p">.</span><span class="s s-Atom">deterministic</span>
+<span class="s s-Atom">def</span> <span class="nf">p</span><span class="p">(</span><span class="s s-Atom">v</span><span class="o">=</span><span class="s s-Atom">v</span><span class="p">)</span><span class="s s-Atom">:</span>
     <span class="s2">&quot;&quot;&quot; Calculate Dirichlet probabilities &quot;&quot;&quot;</span>
 
-    <span class="s-Atom">#</span> <span class="nv">Probabilities</span> <span class="s-Atom">from</span> <span class="s-Atom">betas</span>
-    <span class="s-Atom">value</span> <span class="o">=</span> <span class="p">[</span><span class="s-Atom">u</span><span class="o">*</span><span class="s-Atom">np</span><span class="p">.</span><span class="nf">prod</span><span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="s-Atom">v</span><span class="p">[</span><span class="s-Atom">:i</span><span class="p">])</span> <span class="s-Atom">for</span> <span class="s-Atom">i</span><span class="p">,</span><span class="s-Atom">u</span> <span class="s-Atom">in</span> <span class="nf">enumerate</span><span class="p">(</span><span class="s-Atom">v</span><span class="p">)]</span>
-    <span class="s-Atom">#</span> <span class="nv">Enforce</span> <span class="s-Atom">sum</span> <span class="s-Atom">to</span> <span class="s-Atom">unity</span> <span class="s-Atom">constraint</span>
-    <span class="s-Atom">value</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span><span class="o">-</span><span class="nf">sum</span><span class="p">(</span><span class="s-Atom">value</span><span class="p">[:-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="s s-Atom">#</span> <span class="nv">Probabilities</span> <span class="s s-Atom">from</span> <span class="s s-Atom">betas</span>
+    <span class="s s-Atom">value</span> <span class="o">=</span> <span class="p">[</span><span class="s s-Atom">u</span><span class="o">*</span><span class="s s-Atom">np</span><span class="p">.</span><span class="nf">prod</span><span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="s s-Atom">v</span><span class="p">[</span><span class="s s-Atom">:i</span><span class="p">])</span> <span class="s s-Atom">for</span> <span class="s s-Atom">i</span><span class="p">,</span><span class="s s-Atom">u</span> <span class="s s-Atom">in</span> <span class="nf">enumerate</span><span class="p">(</span><span class="s s-Atom">v</span><span class="p">)]</span>
+    <span class="s s-Atom">#</span> <span class="nv">Enforce</span> <span class="s s-Atom">sum</span> <span class="s s-Atom">to</span> <span class="s s-Atom">unity</span> <span class="s s-Atom">constraint</span>
+    <span class="s s-Atom">value</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span><span class="o">-</span><span class="nf">sum</span><span class="p">(</span><span class="s s-Atom">value</span><span class="p">[:-</span><span class="mi">1</span><span class="p">])</span>
 
-    <span class="s-Atom">return</span> <span class="s-Atom">value</span>
+    <span class="s s-Atom">return</span> <span class="s s-Atom">value</span>
 </pre></div>
 
 
 <p>This is where you really appreciate Python's <a href="http://docs.python.org/tutorial/datastructures.html#list-comprehensions">list comprehension</a> idiom. In fact, were it not for the fact that we wanted to ensure that the array of probabilities sums to one, <code>p</code> could have been specified in a single line.</p>
 <p>The final step involves using the Dirichlet probabilities to generate indices to the appropriate point masses. This is realized using a categorical mass function:</p>
-<div class="highlight"><pre>z = pymc.Categorical(&#39;z&#39;, p, size=len(set(counties)))
+<div class="highlight"><pre><span></span>z = pymc.Categorical(&#39;z&#39;, p, size=len(set(counties)))
 </pre></div>
 
 
 <p>These indices, in turn, are used to index the random effects, which are used as random intercepts for the model:</p>
-<div class="highlight"><pre>a = pymc.Lambda(&#39;a&#39;, lambda z=z, theta=theta: theta[z])
+<div class="highlight"><pre><span></span>a = pymc.Lambda(&#39;a&#39;, lambda z=z, theta=theta: theta[z])
 </pre></div>
 
 
 <p>Substitution of the above code into Gelman and Hill's original model produces reasonable results. The expected value of $\alpha$ is approximately 5, as shown by the posterior output below:</p>
-<p><img alt="" src="http://dl.dropbox.com/u/233041/images/alpha.png" /></p>
+<p><img alt="" src="http://dl.dropbox.com/u/233041/images/alpha.png"></p>
 <p>Here is a random sample taken from the DP:</p>
-<p><img alt="" src="http://dl.dropbox.com/u/233041/images/dphist.png" /></p>
+<p><img alt="" src="http://dl.dropbox.com/u/233041/images/dphist.png"></p>
 <p>But is the model better? One metric for model comparison is the <a href="http://en.wikipedia.org/wiki/Deviance_information_criterion">deviance information criterion</a> (DIC), which appears to strongly favor the DP random effect (smaller values are better):</p>
-<div class="highlight"><pre>In [11]: M.dic
+<div class="highlight"><pre><span></span>In [11]: M.dic
 Out[11]: 2138.7806225675804
 
 In [12]: M_dp.dic

@@ -6,12 +6,12 @@
 	<meta name="author" content="Christopher Fonnesbeck">
 	
 
-  <meta name="description" content="A distinct advantage of using Bayesian inference is in its universal application of probability models for providing inference. As such, all components of a Bayesian model are specified using probability distributions for either describing a ...">
+  <meta name="description" content="A distinct advantage of using Bayesian inference is in its universal application of probability models for providing inference. As such, all components of a Bayesian model are specified using probability distributions for either describing a sampling model (in the case of observed data) or characterizing the uncertainty of an unknown …">
 
 	<meta name="twitter:card" content="summary">
 	  <meta name="twitter:creator" content="@fonnesbeck">
 	<meta name="twitter:title" content="Automatic Missing Data Imputation with PyMC">
-	<meta name="twitter:description" content="A distinct advantage of using Bayesian inference is in its universal application of probability models for providing inference. As such, all components of a Bayesian model are specified using probability distributions for either describing a ...">
+	<meta name="twitter:description" content="A distinct advantage of using Bayesian inference is in its universal application of probability models for providing inference. As such, all components of a Bayesian model are specified using probability distributions for either describing a sampling model (in the case of observed data) or characterizing the uncertainty of an unknown …">
 	<meta name="twitter:url" content="http://stronginference.com/missing-data-imputation.html">
 
 
@@ -28,7 +28,7 @@
 	  
 	  <header role="banner">
 	    <div class="feeds">
-	        <a href="http://stronginference.com/feeds/all.atom.xml" rel="alternate"><img src="/theme/images/icons/feed-32px.png" alt="atom feed"/></a>
+	      <a href="http://stronginference.com/feeds/all.atom.xml" rel="alternate"><img src="http://stronginference.com/theme/images/icons/feed-32px.png" alt="atom feed"/></a>
 	    </div>
 		<a href="http://stronginference.com" class="title">Strong Inference</a>
       </header>
@@ -64,7 +64,7 @@
 <h2>Implementing imputation in PyMC</h2>
 <p>One of the recurring examples in the PyMC documentation is the coal mining disasters dataset from <a href="http://biomet.oxfordjournals.org/cgi/content/short/66/1/191" title="Jarrett RG (1979). A Note on the Intervals Between Coal Mining Disasters. Biometrika, 66, 191–193.">Jarrett 1979</a>. This is a simple longitudinal dataset consisting of counts of coal mining disasters in the U.K. between 1851 and 1962. The objective of the analysis is to identify a switch point in the rate of disasters, from a relatively high rate early in the time series to a lower one later on. Hence, we are interested in estimating two rates, in addition to the year after which the rate changed.</p>
 <p>In order to illustrate imputation, I have randomly replaced the data for two years with a missing data placeholder value, -999:</p>
-<div class="highlight"><pre>disasters_array =   np.array([ 4, 5, 4, 0, 1, 4, 3, 4, 0, 6, 3, 3, 4, 0, 2, 6,
+<div class="highlight"><pre><span></span>disasters_array =   np.array([ 4, 5, 4, 0, 1, 4, 3, 4, 0, 6, 3, 3, 4, 0, 2, 6,
                    3, 3, 5, 4, 5, 3, 1, 4, 4, 1, 5, 5, 3, 4, 2, 5,
                    2, 2, 3, 4, 2, 1, 3, -999, 2, 1, 1, 1, 1, 3, 0, 0,
                    1, 0, 1, 1, 0, 0, 3, 1, 0, 3, 2, 2, 0, 1, 1, 1,
@@ -75,13 +75,13 @@
 
 
 <p>Here, the <code>np</code> prefix indicates that the <code>array</code> function comes from the <a href="http://numpy.scipy.org/">Numpy</a> module. PyMC is able to recognize the presence of missing values when we use Numpy's MaskedArray class to contain our data. The masked array is instantiated via the <code>masked_array</code> function, using the original data array and a boolean mask as arguments: </p>
-<div class="highlight"><pre>    masked_values = np.ma.masked_array(disasters_array,
+<div class="highlight"><pre><span></span>    masked_values = np.ma.masked_array(disasters_array,
     mask=disasters_array==-999)
 </pre></div>
 
 
 <p>Of course, my use of -999 to indicate missing data was entirely arbitrary, so feel free to use any appropriate value, so long as it can be identified and masked (obviously, small positive integers would not have been appropriate here). Let's have a look at the masked array:</p>
-<div class="highlight"><pre>masked_array(data = [4 5 4 0 1 4 3 4 0 6 3 3 4 0 2 6 3 3 5 4 5 3 1 4 
+<div class="highlight"><pre><span></span>masked_array(data = [4 5 4 0 1 4 3 4 0 6 3 3 4 0 2 6 3 3 5 4 5 3 1 4 
     4 1 5 5 3 4 2 5 2 2 3 4 2 1 3 -- 2 1 1 1 1 3 0 0 1 0 1 1 0 0 3 1 
     0 3 2 2 0 1 1 1 0 1 0 1 0 0 0 2 1 0 0 0 1 1 0 2 3 3 1 -- 2 1 1 1 
     1 2 4 2 0 0 1 4 0 0 0 1 0 0 0 0 0 1 0 0 1 0 1], 
@@ -103,7 +103,7 @@
 <p>Notice that the placeholder values have disappeared from the data, and the array has a <code>mask</code> attribute that identifies the indices for the missing values.</p>
 <p>Beyond the construction of a masked array, there is nothing else that needs to be done to accommodate missing values in a PyMC model.</p>
 <p>First, we need to specify prior distributions for the unknown parameters, which I call <code>switch</code> (the switch point), <code>early</code> (the early mean) and <code>late</code> (the late mean). An appropriate non-informative prior for the switch point is a discrete uniform random variable over the range of years represented by the data. Since the rates must be positive, I use identical weakly-informative exponential distributions:</p>
-<div class="highlight"><pre># Switchpoint
+<div class="highlight"><pre><span></span># Switchpoint
 switch = DiscreteUniform(&#39;switch&#39;, lower=0, upper=110)
 # Early mean
 early = Exponential(&#39;early&#39;, beta=1)
@@ -113,7 +113,7 @@ late = Exponential(&#39;late&#39;, beta=1)
 
 
 <p>The only tricky part of the model is assigning the appropriate rate parameter to each observation. Though the two rates and the switch point are stochastic, in the sense that we have used probability models to describe our uncertainty in their true values, the membership of each observation to either the early or late rate is a deterministic function of the stochastics. Thus, we set up a deterministic node that assigns a rate to each observation depending on the  location of the switch point at the current iteration of the MCMC algorithm:</p>
-<div class="highlight"><pre>@deterministic
+<div class="highlight"><pre><span></span>@deterministic
 def rates(s=switch, e=early, l=late):
     &quot;&quot;&quot;Allocate appropriate mean to time series&quot;&quot;&quot;
     out = np.empty(len(disasters_array))
@@ -126,12 +126,12 @@ def rates(s=switch, e=early, l=late):
 
 
 <p>Finally, the data likelihood comprises the annual counts of disasters being modeled as Poisson random variables, conditional on the parameters assigned in the <code>rates</code> node above. The masked array is specified as the value of the stochastic node, and flagged as data via the <code>observed</code> argument.</p>
-<div class="highlight"><pre>disasters = Poisson(&#39;disasters&#39;, mu=rates, value=masked_values, observed=True)
+<div class="highlight"><pre><span></span>disasters = Poisson(&#39;disasters&#39;, mu=rates, value=masked_values, observed=True)
 </pre></div>
 
 
 <p>If we run the model, then query the <code>disasters</code> node for posterior statistics, we can obtain a summary of the estimated number of disasters in both of the missing years.</p>
-<div class="highlight"><pre>In [9]: DisasterModel.disasters.stats()
+<div class="highlight"><pre><span></span>In [9]: DisasterModel.disasters.stats()
 Out[9]: 
 {&#39;95% HPD interval&#39;: array([[ 0.,  6.],
        [ 0.,  3.]]),

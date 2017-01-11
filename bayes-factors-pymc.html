@@ -6,12 +6,12 @@
 	<meta name="author" content="Christopher Fonnesbeck">
 	
 
-  <meta name="description" content="Statisticians are sometimes interested in comparing two (or more) models, with respect to their relative support by a particular dataset. This may be in order to select the best model to use for inference, or ...">
+  <meta name="description" content="Statisticians are sometimes interested in comparing two (or more) models, with respect to their relative support by a particular dataset. This may be in order to select the best model to use for inference, or to weight models so that they can be averaged for use in multimodel inference. The …">
 
 	<meta name="twitter:card" content="summary">
 	  <meta name="twitter:creator" content="@fonnesbeck">
 	<meta name="twitter:title" content="Calculating Bayes factors with PyMC">
-	<meta name="twitter:description" content="Statisticians are sometimes interested in comparing two (or more) models, with respect to their relative support by a particular dataset. This may be in order to select the best model to use for inference, or ...">
+	<meta name="twitter:description" content="Statisticians are sometimes interested in comparing two (or more) models, with respect to their relative support by a particular dataset. This may be in order to select the best model to use for inference, or to weight models so that they can be averaged for use in multimodel inference. The …">
 	<meta name="twitter:url" content="http://stronginference.com/bayes-factors-pymc.html">
 
 
@@ -28,7 +28,7 @@
 	  
 	  <header role="banner">
 	    <div class="feeds">
-	        <a href="http://stronginference.com/feeds/all.atom.xml" rel="alternate"><img src="/theme/images/icons/feed-32px.png" alt="atom feed"/></a>
+	      <a href="http://stronginference.com/feeds/all.atom.xml" rel="alternate"><img src="http://stronginference.com/theme/images/icons/feed-32px.png" alt="atom feed"/></a>
 	    </div>
 		<a href="http://stronginference.com" class="title">Strong Inference</a>
       </header>
@@ -62,7 +62,7 @@
 <p>Hence, they represent the evidence in the data for changing the prior odds of one model over another. It is this interpretation as a measure of evidence that makes the Bayes factor a compelling choice for model selection.</p>
 <p>One of the obstacles to the wider use of Bayes factors is the difficulty associated with calculating them. While likelihood ratios can be obtained simply by the use of MLEs for all model parameters, Bayes factors require the integration over all unknown model parameters. Hence, for most interesting models Markov chain Monte Carlo (MCMC) is the easiest way to obtain Bayes factors.</p>
 <p>Here's a quick tutorial on how to obtain Bayes factors from <a href="https://github.com/pymc-devs/pymc">PyMC</a>. I'm going to use a simple example taken from Chapter 7 of <a href="http://amzn.to/gGV2rK">Link and Barker (2010)</a>. Consider a short vector of data, consisting of 5 integers:</p>
-<div class="highlight"><pre><span class="n">Y</span> <span class="o">=</span> <span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">8</span><span class="p">])</span>
+<div class="highlight"><pre><span></span><span class="n">Y</span> <span class="o">=</span> <span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">8</span><span class="p">])</span>
 </pre></div>
 
 
@@ -76,28 +76,28 @@
 <p>Bayes factor = Posterior odds / Prior odds</p>
 </blockquote>
 <p>The Bayes factor does not depend on the value of the prior model weights, but the estimate will be most precise when the posterior odds are the same. For our purposes, we will give 0.1 probability to the geometric model, and 0.9 to the Poisson model:</p>
-<div class="highlight"><pre><span class="n">pi</span> <span class="o">=</span> <span class="p">(</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.9</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><span class="n">pi</span> <span class="o">=</span> <span class="p">(</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.9</span><span class="p">)</span>
 </pre></div>
 
 
 <p>Next, we need to specify a latent variable, which identifies the true model (we don't believe either model is "true", but we hope one is better than the other). This is easily done using a Bernoulli random variable, that identifies one model or the other, according to their relative weight.</p>
-<div class="highlight"><pre><span class="n">true_model</span> <span class="o">=</span> <span class="n">Bernoulli</span><span class="p">(</span><span class="s">&#39;true_model&#39;</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="n">pi</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">value</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><span class="n">true_model</span> <span class="o">=</span> <span class="n">Bernoulli</span><span class="p">(</span><span class="s1">&#39;true_model&#39;</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="n">pi</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">value</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 </pre></div>
 
 
 <p>Here, we use the specified prior weights as the Bernoulli probabilities, and the variable has been arbitrarily initialized to zero (the geometric model).</p>
 <p>Next, we need prior distributions for the parameters of the two models. For the Poisson model, the expected value is given a uniform prior on the interval [0,1000]:</p>
-<div class="highlight"><pre><span class="n">mu</span> <span class="o">=</span> <span class="n">Uniform</span><span class="p">(</span><span class="s">&#39;mu&#39;</span><span class="p">,</span> <span class="n">lower</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">upper</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><span class="n">mu</span> <span class="o">=</span> <span class="n">Uniform</span><span class="p">(</span><span class="s1">&#39;mu&#39;</span><span class="p">,</span> <span class="n">lower</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">upper</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
 </pre></div>
 
 
 <p>This stochastic node can be used for the geometric model as well, though it needs to be transformed for use with that distribution:</p>
-<div class="highlight"><pre><span class="n">p</span> <span class="o">=</span> <span class="n">Lambda</span><span class="p">(</span><span class="s">&#39;p&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">:</span> <span class="mi">1</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">mu</span><span class="p">))</span>
+<div class="highlight"><pre><span></span><span class="n">p</span> <span class="o">=</span> <span class="n">Lambda</span><span class="p">(</span><span class="s1">&#39;p&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">:</span> <span class="mi">1</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">mu</span><span class="p">))</span>
 </pre></div>
 
 
 <p>Finally, the data are incorporated by specifying the appropriate likelihood. We require a mixture of geometric and Poisson likelihoods, depending on which value <em>true_model</em> takes. While BUGS requires an obscure trick to implement such a mixture, PyMC allows for the specification of arbitrary stochastic nodes: </p>
-<div class="highlight"><pre><span class="nd">@observed</span>
+<div class="highlight"><pre><span></span><span class="nd">@observed</span>
 <span class="k">def</span> <span class="nf">Ylike</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="n">Y</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="n">p</span><span class="p">,</span> <span class="n">M</span><span class="o">=</span><span class="n">true_model</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Either Poisson or geometric, depending on M&quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">M</span><span class="p">:</span>
@@ -108,14 +108,14 @@
 
 <p>Notice that the function returns the geometric likelihood when M=0, or the Poisson model otherwise. Now, all that remains is to run the model, and extract the posterior quantities to calculate the Bayes factor.</p>
 <p>Though we may be interested in the posterior estimate of the mean, all that we care about from a model selection standpoint is the estimate of <em>true_model</em>. At every iteration, the value of this parameter takes the value of zero for the geometric model and one for the Poisson. Hence, the mean (or median) will be an estimate of the probability of the Poisson model: </p>
-<div class="highlight"><pre><span class="n">In</span> <span class="p">[</span><span class="mi">11</span><span class="p">]:</span> <span class="n">M</span><span class="o">.</span><span class="n">true_model</span><span class="o">.</span><span class="n">stats</span><span class="p">()[</span><span class="s">&#39;mean&#39;</span><span class="p">]</span>
+<div class="highlight"><pre><span></span><span class="n">In</span> <span class="p">[</span><span class="mi">11</span><span class="p">]:</span> <span class="n">M</span><span class="o">.</span><span class="n">true_model</span><span class="o">.</span><span class="n">stats</span><span class="p">()[</span><span class="s1">&#39;mean&#39;</span><span class="p">]</span>
 
 <span class="n">Out</span><span class="p">[</span><span class="mi">11</span><span class="p">]:</span> <span class="mf">0.39654545454545453</span>
 </pre></div>
 
 
 <p>So, the posterior probability that the Poisson model is true is about 0.4, leaving 0.6 for the geometric model. The Bayes factor in favor of the geometric model is simply:</p>
-<div class="highlight"><pre><span class="n">In</span> <span class="p">[</span><span class="mi">18</span><span class="p">]:</span> <span class="n">p_pois</span> <span class="o">=</span> <span class="n">M</span><span class="o">.</span><span class="n">true_model</span><span class="o">.</span><span class="n">stats</span><span class="p">()[</span><span class="s">&#39;mean&#39;</span><span class="p">]</span>
+<div class="highlight"><pre><span></span><span class="n">In</span> <span class="p">[</span><span class="mi">18</span><span class="p">]:</span> <span class="n">p_pois</span> <span class="o">=</span> <span class="n">M</span><span class="o">.</span><span class="n">true_model</span><span class="o">.</span><span class="n">stats</span><span class="p">()[</span><span class="s1">&#39;mean&#39;</span><span class="p">]</span>
 
 <span class="n">In</span> <span class="p">[</span><span class="mi">19</span><span class="p">]:</span> <span class="p">((</span><span class="mi">1</span><span class="o">-</span><span class="n">p_pois</span><span class="p">)</span><span class="o">/</span><span class="n">p_pois</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mf">0.1</span><span class="o">/</span><span class="mf">0.9</span><span class="p">)</span>
 

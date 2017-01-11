@@ -2,9 +2,18 @@
 <html lang="">	
 <head>
 	<meta charset="utf-8"/>
-	<title>Strong Inference</title>	
+	<title>The First Release of PyMC3 - Strong Inference</title>	
 	<meta name="author" content="Christopher Fonnesbeck">
 	
+
+  <meta name="description" content="On Monday morning the PyMC dev team pushed the first release of PyMC3, the culmination of over 5 years of collaborative work. We are very pleased to be able to provide a stable version of the package to the Python scientific computing community. For those of you unfamiliar with the …">
+
+	<meta name="twitter:card" content="summary">
+	  <meta name="twitter:creator" content="@fonnesbeck">
+	<meta name="twitter:title" content="The First Release of PyMC3">
+	<meta name="twitter:description" content="On Monday morning the PyMC dev team pushed the first release of PyMC3, the culmination of over 5 years of collaborative work. We are very pleased to be able to provide a stable version of the package to the Python scientific computing community. For those of you unfamiliar with the …">
+	<meta name="twitter:url" content="http://stronginference.com/pymc3-release.html">
+
 
 	<link rel="stylesheet" href="http://stronginference.com/theme/css/main.css" type="text/css" />
 		
@@ -27,12 +36,18 @@
 	  <div class="wrapper">
 
 		  <div role="main" class="content">
-
-
-
-      <article>
-        <h1><a href="http://stronginference.com/pymc3-release.html">The First Release of PyMC3</a></h1>
-        <p><img alt="pymc3" src="http://d.pr/i/lJ7d+"></p>
+	<article class="full">
+		
+		<h1>The First Release of PyMC3</h1>
+		
+<div class="metadata">
+  <time datetime="2017-01-10T00:00:00-06:00" pubdate>Tue 10 January 2017</time>
+    <address class="vcard author">
+      by <a class="url fn" href="http://stronginference.com/author/christopher-fonnesbeck.html">Christopher Fonnesbeck</a>
+    </address>
+  in <a href="http://stronginference.com/category/statistics.html">Statistics</a>
+<p class="tags">tagged <a href="http://stronginference.com/tag/bayesian.html">bayesian</a>, <a href="http://stronginference.com/tag/pymc.html">pymc</a>, <a href="http://stronginference.com/tag/mcmc.html">mcmc</a>, <a href="http://stronginference.com/tag/python.html">python</a>, <a href="http://stronginference.com/tag/variational-inference.html">variational inference</a></p></div>		
+		<p><img alt="pymc3" src="http://d.pr/i/lJ7d+"></p>
 <p>On Monday morning the PyMC dev team pushed the first release of PyMC3, the culmination of over 5 years of collaborative work. We are very pleased to be able to provide a stable version of the package to the Python scientific computing community. For those of you unfamiliar with the history and progression of this project, PyMC3 is a complete re-design and re-write of the PyMC code base, which was primarily the product of the vision and work of John Salvatier. While PyMC 2.3 is still actively maintained and used (I continue to work with it in a number of project myself), this new incarnation allows us to be able to provide newer methods for Bayesian computation to a degree that would have been impossible impossible previously. </p>
 <p>While PyMC2 relied on Fortran extensions (via <code>f2py</code>) for most of the computational heavy-lifting, PyMC3 leverages <a href="http://deeplearning.net/software/theano/">Theano</a>, a library from the LISA lab for array-based expression evaluation, to perform its computation. What this provides, above all else, is fast automatic differentiation, which is at the heart of the gradient-based sampling and optimization methods currently providing inference for probabilistic programming. While the addition of Theano adds a level of complexity to the development of PyMC, fundamentally altering how the underlying computation is performed, we have worked hard to maintain the elegant simplicity of the original PyMC model specification syntax. Since the beginning (over 13 years ago now!), we have tried to provide a simple, black-box interface to model-building, in the sense that the user need only concern herself with the modeling problem at hand, rather than with the underlying computer science. </p>
 <p>As a point of comparison, here is what a simple hierarchical model (taken from <a href="https://www.amazon.com/Bayesian-Analysis-Chapman-Statistical-Science/dp/1439840954">Gelman <em>et al.</em>'s book</a>) looked like under PyMC 2.3:</p>
@@ -106,43 +121,15 @@ Finished [100%]: Average ELBO = -6.2835
 <p>As we push past the PyMC3 3.0 release, we have a number of innovations either under development or in planning. For example, in order to improve the quality of approximations using variational inference, we are looking at implementing methods that transform the approximating density to allow it to represent more complicated distributions, such as the application of normalizing flows to ADVI; this work is being led by Taku Yoshioka. Thomas Wiecki is currently working on adding Stein Variational Gradient Descent to the suite of VI algorithms, which should allow much larger datasets to be fit to PyMC models. To more easily accommodate the number of different VI algorithms that are being developed, Maxim Kochurov is leading the development of a flexible base class for variational methods that will unify their interfaces.  Work is also underway to allow PyMC3 to take advantage of computation on GPUs, something that Theano allows us to do, but requires some engineering to allow it to work generally. These are just a few notable enhancements, along with all of the incremental but steady improvement throughout the code base.</p>
 <p>When I began the PyMC project as a postdoctoral fellow <a href="https://en.wikipedia.org/wiki/Billboard_Year-End_Hot_100_singles_of_2003">back in 2003</a>, it was intended only as a set of functions and classes for personal use, to simplify the business of building and iterating through sets of models. At the time, the world of Bayesian computation was dominated by WinBUGS, a truly revolutionary piece of software that made hierarchical modeling and MCMC available to applied statisticians and other scientists who would otherwise been unable to consider these approaches. All the same, the BUGS language was not ideal for all problems and workflows, so if you needed something else you were forced to write your own software. We live in a very different scientific computing world today; for example, there are, as of this writing, no fewer than six libraries for building Gaussian process models in Python! The ecosystem for probabilistic programming and Bayesian analysis is rich today, and becoming richer every month, it seems.</p>
 <p>I'd like to take the opportunity now to thank the ever-changing and -growing PyMC development team for all of their hard work over the years. I've been truly awe-stricken by the level of talent and degree of comittment that the project has attracted over the years. Some contributors added value to the project for very short intervals,  perhaps in order to facilitate the completion of their own work, and others have stuck around through multiple releases, not only implementing exciting new functionality, but also taking on more mundane chores like squashing bugs and refactoring old code. Of course, every bit helps. Thanks again.</p>
-<p>Finally, I'd like to extend an invitation to all who are interested (or just curious) to come on board and contribute. Now is an exciting time to be a part of the team, with novel methodological innovations in Bayesian modeling arriving at such a rapid pace, and with data science coming into its own as a field. We welcome contributions to all aspects of the project: code development, <a href="https://github.com/pymc-devs/pymc3/issues">issue</a> resolution, <a href="http://pymc-devs.github.io/pymc3/">documentation</a> writing—simply trying out PyMC3 on your own problem and reporting what does and doesn't work is even a great way to get involved. It doesn't take much to get started! </p>
-      </article>
+<p>Finally, I'd like to extend an invitation to all who are interested (or just curious) to come on board and contribute. Now is an exciting time to be a part of the team, with novel methodological innovations in Bayesian modeling arriving at such a rapid pace, and with data science coming into its own as a field. We welcome contributions to all aspects of the project: code development, <a href="https://github.com/pymc-devs/pymc3/issues">issue</a> resolution, <a href="http://pymc-devs.github.io/pymc3/">documentation</a> writing—simply trying out PyMC3 on your own problem and reporting what does and doesn't work is even a great way to get involved. It doesn't take much to get started! </p>	
 
-      <hr />
+	</article>
 
-        <div>
-          <h3>Last posts</h3>
-          <ol class="archive">
-    
+    <p>
+	<a href="https://twitter.com/share" class="twitter-share-button" data-via="fonnesbeck" data-lang="en" data-size="large" data-related="fonnesbeck">Tweet</a>
+	<script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}}(document,"script","twitter-wjs");</script>
+	</p>
 
-
-      <li>
-<a href="http://stronginference.com/bayes-factors-pymc.html" rel="bookmark" title="Permalink to Calculating Bayes factors with PyMC">Calculating Bayes factors with PyMC</a>
-  <time datetime="2014-11-30T00:00:00-06:00" pubdate>Sun 30 November 2014</time>
-<p class="tags">tags: <a href="http://stronginference.com/tag/bayesian.html">bayesian</a><a href="http://stronginference.com/tag/pymc.html">pymc</a><a href="http://stronginference.com/tag/mcmc.html">mcmc</a><a href="http://stronginference.com/tag/python.html">python</a></p></a>      </li>
-
-
-      <li>
-<a href="http://stronginference.com/burn-in-and-other-mcmc-folklore.html" rel="bookmark" title="Permalink to Burn-in, and Other MCMC Folklore">Burn-in, and Other MCMC Folklore</a>
-  <time datetime="2014-08-09T00:00:00-05:00" pubdate>Sat 09 August 2014</time>
-<p class="tags">tags: <a href="http://stronginference.com/tag/bayesian.html">bayesian</a><a href="http://stronginference.com/tag/mcmc.html">mcmc</a><a href="http://stronginference.com/tag/pymc.html">pymc</a><a href="http://stronginference.com/tag/python.html">python</a></p></a>      </li>
-
-
-      <li>
-<a href="http://stronginference.com/implementing-dirichlet-processes-for-bayesian-semi-parametric-models.html" rel="bookmark" title="Permalink to Implementing Dirichlet processes for Bayesian semi-parametric models">Implementing Dirichlet processes for Bayesian semi-parametric models</a>
-  <time datetime="2014-03-07T00:00:00-06:00" pubdate>Fri 07 March 2014</time>
-<p class="tags">tags: <a href="http://stronginference.com/tag/bayesian.html">bayesian</a><a href="http://stronginference.com/tag/pymc.html">pymc</a><a href="http://stronginference.com/tag/mcmc.html">mcmc</a><a href="http://stronginference.com/tag/python.html">python</a></p></a>      </li>
-
-
-      <li>
-<a href="http://stronginference.com/missing-data-imputation.html" rel="bookmark" title="Permalink to Automatic Missing Data Imputation with PyMC">Automatic Missing Data Imputation with PyMC</a>
-  <time datetime="2013-08-18T00:00:00-05:00" pubdate>Sun 18 August 2013</time>
-<p class="tags">tags: <a href="http://stronginference.com/tag/pymc.html">pymc</a><a href="http://stronginference.com/tag/mcmc.html">mcmc</a><a href="http://stronginference.com/tag/python.html">python</a></p></a>      </li>
-
-
-          </ol>
-        </div>
 
 		  </div>	
 		  
@@ -153,7 +140,7 @@ Finished [100%]: Average ELBO = -6.2835
   	          <nav>
 	            <h2>Categories</h2>
 	            <ul>
-	                <li ><a href="http://stronginference.com/category/statistics.html">Statistics</a></li>
+	                <li class="active"><a href="http://stronginference.com/category/statistics.html">Statistics</a></li>
 	            </ul>
 	          </nav>
 

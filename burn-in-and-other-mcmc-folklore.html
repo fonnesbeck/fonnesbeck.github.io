@@ -6,12 +6,12 @@
 	<meta name="author" content="Christopher Fonnesbeck">
 	
 
-  <meta name="description" content="I have been slowly working my way through The Handbook of Markov Chain Monte Carlo, a compiled volume edited by Steve Brooks et al. that I picked up at last week's Joint Statistical Meetings ...">
+  <meta name="description" content="I have been slowly working my way through The Handbook of Markov Chain Monte Carlo, a compiled volume edited by Steve Brooks et al. that I picked up at last week's Joint Statistical Meetings. The first chapter is a primer on MCMC by Charles Geyer, in which he summarizes the …">
 
 	<meta name="twitter:card" content="summary">
 	  <meta name="twitter:creator" content="@fonnesbeck">
 	<meta name="twitter:title" content="Burn-in, and Other MCMC Folklore">
-	<meta name="twitter:description" content="I have been slowly working my way through The Handbook of Markov Chain Monte Carlo, a compiled volume edited by Steve Brooks et al. that I picked up at last week's Joint Statistical Meetings ...">
+	<meta name="twitter:description" content="I have been slowly working my way through The Handbook of Markov Chain Monte Carlo, a compiled volume edited by Steve Brooks et al. that I picked up at last week's Joint Statistical Meetings. The first chapter is a primer on MCMC by Charles Geyer, in which he summarizes the …">
 	<meta name="twitter:url" content="http://stronginference.com/burn-in-and-other-mcmc-folklore.html">
 
 
@@ -28,7 +28,7 @@
 	  
 	  <header role="banner">
 	    <div class="feeds">
-	        <a href="http://stronginference.com/feeds/all.atom.xml" rel="alternate"><img src="/theme/images/icons/feed-32px.png" alt="atom feed"/></a>
+	      <a href="http://stronginference.com/feeds/all.atom.xml" rel="alternate"><img src="http://stronginference.com/theme/images/icons/feed-32px.png" alt="atom feed"/></a>
 	    </div>
 		<a href="http://stronginference.com" class="title">Strong Inference</a>
       </header>
@@ -58,7 +58,7 @@
 </blockquote>
 <p>I can't disagree with this, though I have always viewed MCMC sampling (for most models that I have dealt with) as being cheap enough that there is little cost to simply throwing away thousands of them. I have often thrown away as many as the first 90 percent of my samples! However, as Geyer notes, there are better ways of getting your chain into a decent region of its support without throwing anything away.</p>
 <p>One method is to use an approximation method on your model before applying MCMC. For example, the <a href="http://en.wikipedia.org/wiki/Maximum_a_posteriori_estimation">maximum a posteriori (MAP)</a> estimate can be obtained using numerical optimization, then used as the initial values for an MCMC run. It turns out to be pretty easy to do in PyMC. For example, using the built-in bioassay example:</p>
-<div class="highlight"><pre><span class="n">In</span> <span class="p">[</span><span class="mi">3</span><span class="p">]:</span> <span class="kn">from</span> <span class="nn">pymc.examples</span> <span class="kn">import</span> <span class="n">gelman_bioassay</span>
+<div class="highlight"><pre><span></span><span class="n">In</span> <span class="p">[</span><span class="mi">3</span><span class="p">]:</span> <span class="kn">from</span> <span class="nn">pymc.examples</span> <span class="kn">import</span> <span class="n">gelman_bioassay</span>
 
 <span class="n">In</span> <span class="p">[</span><span class="mi">4</span><span class="p">]:</span> <span class="kn">from</span> <span class="nn">pymc</span> <span class="kn">import</span> <span class="n">MAP</span><span class="p">,</span> <span class="n">MCMC</span>
 
@@ -69,19 +69,19 @@
 
 
 <p>This yields MAP estimates for all the parameters in the model, which are less likely to be true modes as the complexity of the model increases, but are a pretty good bet to be a decent starting point for MCMC.</p>
-<div class="highlight"><pre><span class="n">In</span> <span class="p">[</span><span class="mi">7</span><span class="p">]:</span> <span class="n">M</span><span class="o">.</span><span class="n">alpha</span><span class="o">.</span><span class="n">value</span>
+<div class="highlight"><pre><span></span><span class="n">In</span> <span class="p">[</span><span class="mi">7</span><span class="p">]:</span> <span class="n">M</span><span class="o">.</span><span class="n">alpha</span><span class="o">.</span><span class="n">value</span>
 <span class="n">Out</span><span class="p">[</span><span class="mi">7</span><span class="p">]:</span> <span class="n">array</span><span class="p">(</span><span class="mf">0.8465802225061101</span><span class="p">)</span>
 </pre></div>
 
 
 <p>All that remains is to move these estimates into an MCMC sampler. While one could manually plug the values of each node into the model specification, its easiest just to extract the variables from the MAP estimator, and use them to instantiate an <code>MCMC</code> object:</p>
-<div class="highlight"><pre><span class="n">In</span> <span class="p">[</span><span class="mi">8</span><span class="p">]:</span> <span class="n">M</span><span class="o">.</span><span class="n">variables</span>
+<div class="highlight"><pre><span></span><span class="n">In</span> <span class="p">[</span><span class="mi">8</span><span class="p">]:</span> <span class="n">M</span><span class="o">.</span><span class="n">variables</span>
 <span class="n">Out</span><span class="p">[</span><span class="mi">8</span><span class="p">]:</span> 
-<span class="nb">set</span><span class="p">([</span><span class="o">&lt;</span><span class="n">pymc</span><span class="o">.</span><span class="n">PyMCObjects</span><span class="o">.</span><span class="n">Stochastic</span> <span class="s">&#39;alpha&#39;</span> <span class="n">at</span> <span class="mh">0x10f78e810</span><span class="o">&gt;</span><span class="p">,</span>
-     <span class="o">&lt;</span><span class="n">pymc</span><span class="o">.</span><span class="n">PyMCObjects</span><span class="o">.</span><span class="n">Stochastic</span> <span class="s">&#39;beta&#39;</span> <span class="n">at</span> <span class="mh">0x10f78e910</span><span class="o">&gt;</span><span class="p">,</span>
-     <span class="o">&lt;</span><span class="n">pymc</span><span class="o">.</span><span class="n">PyMCObjects</span><span class="o">.</span><span class="n">Deterministic</span> <span class="s">&#39;theta&#39;</span> <span class="n">at</span> <span class="mh">0x10f78e9d0</span><span class="o">&gt;</span><span class="p">,</span>
-     <span class="o">&lt;</span><span class="n">pymc</span><span class="o">.</span><span class="n">distributions</span><span class="o">.</span><span class="n">Binomial</span> <span class="s">&#39;deaths&#39;</span> <span class="n">at</span> <span class="mh">0x10f78ea50</span><span class="o">&gt;</span><span class="p">,</span>
-     <span class="o">&lt;</span><span class="n">pymc</span><span class="o">.</span><span class="n">CommonDeterministics</span><span class="o">.</span><span class="n">Lambda</span> <span class="s">&#39;LD50&#39;</span> <span class="n">at</span> <span class="mh">0x10f78ec10</span><span class="o">&gt;</span><span class="p">])</span>
+<span class="nb">set</span><span class="p">([</span><span class="o">&lt;</span><span class="n">pymc</span><span class="o">.</span><span class="n">PyMCObjects</span><span class="o">.</span><span class="n">Stochastic</span> <span class="s1">&#39;alpha&#39;</span> <span class="n">at</span> <span class="mh">0x10f78e810</span><span class="o">&gt;</span><span class="p">,</span>
+     <span class="o">&lt;</span><span class="n">pymc</span><span class="o">.</span><span class="n">PyMCObjects</span><span class="o">.</span><span class="n">Stochastic</span> <span class="s1">&#39;beta&#39;</span> <span class="n">at</span> <span class="mh">0x10f78e910</span><span class="o">&gt;</span><span class="p">,</span>
+     <span class="o">&lt;</span><span class="n">pymc</span><span class="o">.</span><span class="n">PyMCObjects</span><span class="o">.</span><span class="n">Deterministic</span> <span class="s1">&#39;theta&#39;</span> <span class="n">at</span> <span class="mh">0x10f78e9d0</span><span class="o">&gt;</span><span class="p">,</span>
+     <span class="o">&lt;</span><span class="n">pymc</span><span class="o">.</span><span class="n">distributions</span><span class="o">.</span><span class="n">Binomial</span> <span class="s1">&#39;deaths&#39;</span> <span class="n">at</span> <span class="mh">0x10f78ea50</span><span class="o">&gt;</span><span class="p">,</span>
+     <span class="o">&lt;</span><span class="n">pymc</span><span class="o">.</span><span class="n">CommonDeterministics</span><span class="o">.</span><span class="n">Lambda</span> <span class="s1">&#39;LD50&#39;</span> <span class="n">at</span> <span class="mh">0x10f78ec10</span><span class="o">&gt;</span><span class="p">])</span>
 
 <span class="n">In</span> <span class="p">[</span><span class="mi">9</span><span class="p">]:</span> <span class="n">MC</span> <span class="o">=</span> <span class="n">MCMC</span><span class="p">(</span><span class="n">M</span><span class="o">.</span><span class="n">variables</span><span class="p">)</span>
 
